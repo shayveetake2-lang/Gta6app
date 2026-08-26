@@ -5,12 +5,13 @@
  * Firebase console → Project settings → Your apps → Web app.
  */
 export const firebaseConfig = {
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_PROJECT.firebaseapp.com',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_PROJECT.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID'
+  apiKey: 'AIzaSyD7VThxCB6PimQHqKa4Ahj8DEyCDiNX9nc',
+  authDomain: 'gta6app.firebaseapp.com',
+  projectId: 'gta6app',
+  storageBucket: 'gta6app.firebasestorage.app',
+  messagingSenderId: '681249196367',
+  appId: '1:681249196367:web:f70f4f41b981b1dc7e1d3a',
+  measurementId: 'G-B4VV05SPYV'
 };
 
 /**

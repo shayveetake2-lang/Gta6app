@@ -92,11 +92,31 @@ import { isConfigured } from './firebase.js';
     return '<p class="empty">' + esc(message) + '</p>';
   }
 
+  function errorState(err) {
+    var needsIndex = /requires an index/i.test(err.message || '');
+    return '<p class="empty"><b>Could not load from the database.</b><br>' +
+      esc(needsIndex ? 'A Firestore index is still building or has not been deployed. Run: npx firebase deploy --only firestore:indexes' : err.message) +
+      '</p>';
+  }
+
+  // Renders a failure instead of leaving a blank section, and stops the chain.
+  var Data = {};
+  ['listUsers', 'getProfile', 'listWalkthroughs', 'getWalkthrough', 'listThreads',
+    'getThread', 'createThread', 'addReply', 'categories'].forEach(function (method) {
+    Data[method] = function () {
+      return DB[method].apply(DB, arguments).catch(function (err) {
+        console.error('[db] ' + method + ' failed:', err);
+        render(errorState(err));
+        return new Promise(function () {});
+      });
+    };
+  });
+
   /* ---------- views ---------- */
 
   var views = {
     '/': function () {
-      Promise.all([DB.listWalkthroughs({}), DB.listThreads(), DB.listUsers({})]).then(function (res) {
+      Promise.all([Data.listWalkthroughs({}), Data.listThreads(), Data.listUsers({})]).then(function (res) {
         var guides = res[0].slice(0, 3);
         var threads = res[1].slice(0, 3);
         var members = res[2].slice(0, 4);
@@ -110,18 +130,21 @@ import { isConfigured } from './firebase.js';
             '</div>' +
           '</section>' +
           '<div class="section-head"><h2>Latest guides</h2><a href="#/walkthroughs">View all</a></div>' +
-          '<div class="grid">' + guides.map(walkthroughCard).join('') + '</div>' +
+          (guides.length ? '<div class="grid">' + guides.map(walkthroughCard).join('') + '</div>'
+            : emptyState('No guides published yet.')) +
           '<div class="section-head"><h2>Active discussions</h2><a href="#/forum">View all</a></div>' +
-          '<div class="stack">' + threads.map(threadRow).join('') + '</div>' +
+          (threads.length ? '<div class="stack">' + threads.map(threadRow).join('') + '</div>'
+            : emptyState('No discussions yet — start the first thread.')) +
           '<div class="section-head"><h2>Members</h2><a href="#/accounts">Search accounts</a></div>' +
-          '<div class="grid">' + members.map(accountCard).join('') + '</div>');
+          (members.length ? '<div class="grid">' + members.map(accountCard).join('') + '</div>'
+            : emptyState('No accounts yet.')));
       });
     },
 
     '/walkthroughs': function (id) {
       if (id) return views.walkthroughDetail(id);
 
-      DB.listWalkthroughs({ difficulty: state.difficulty, query: state.query }).then(function (items) {
+      Data.listWalkthroughs({ difficulty: state.difficulty, query: state.query }).then(function (items) {
         var levels = ['all', 'easy', 'medium', 'hard'];
         render('' +
           '<div class="section-head"><h2>Walkthroughs</h2><span class="card__meta">' + items.length + ' guides</span></div>' +
@@ -156,7 +179,7 @@ import { isConfigured } from './firebase.js';
     },
 
     walkthroughDetail: function (id) {
-      DB.getWalkthrough(id).then(function (w) {
+      Data.getWalkthrough(id).then(function (w) {
         if (!w) return render(emptyState('That walkthrough could not be found.'));
         render('' +
           '<a class="btn btn--ghost" href="#/walkthroughs">← Back to guides</a>' +
@@ -202,7 +225,7 @@ import { isConfigured } from './firebase.js';
       input.value = state.accountQuery;
 
       function update() {
-        DB.listUsers({ query: state.accountQuery }).then(function (users) {
+        Data.listUsers({ query: state.accountQuery }).then(function (users) {
           count.textContent = users.length + (users.length === 1 ? ' account' : ' accounts');
           results.innerHTML = users.length
             ? '<div class="grid">' + users.map(accountCard).join('') + '</div>'
@@ -221,7 +244,7 @@ import { isConfigured } from './firebase.js';
 
     '/account': function (id) {
       if (!id) return views['/accounts']();
-      Promise.all([DB.getProfile(id), DB.listWalkthroughs({}), DB.listThreads()]).then(function (res) {
+      Promise.all([Data.getProfile(id), Data.listWalkthroughs({}), Data.listThreads()]).then(function (res) {
         var u = res[0];
         if (!u) return render(emptyState('That account could not be found.'));
         var guides = res[1].filter(function (w) { return w.author === u.username; });
@@ -251,7 +274,7 @@ import { isConfigured } from './firebase.js';
     },
 
     '/forum': function () {
-      Promise.all([DB.listThreads(state.category), DB.categories()]).then(function (res) {
+      Promise.all([Data.listThreads(state.category), Data.categories()]).then(function (res) {
         var threads = res[0];
         var cats = ['all'].concat(res[1]);
         render('' +
@@ -273,7 +296,7 @@ import { isConfigured } from './firebase.js';
     },
 
     '/thread': function (id) {
-      DB.getThread(id).then(function (t) {
+      Data.getThread(id).then(function (t) {
         if (!t) return render(emptyState('That thread could not be found.'));
         render('' +
           '<a class="btn btn--ghost" href="#/forum">← Back to forum</a>' +
@@ -298,13 +321,13 @@ import { isConfigured } from './firebase.js';
           e.preventDefault();
           var body = document.getElementById('replyBody').value.trim();
           if (!body) return;
-          DB.addReply(t.id, { body: body }).then(function () { views['/thread'](t.id); });
+          Data.addReply(t.id, { body: body }).then(function () { views['/thread'](t.id); });
         });
       });
     },
 
     '/new-thread': function () {
-      DB.categories().then(function (cats) {
+      Data.categories().then(function (cats) {
         render('' +
           '<div class="section-head"><h2>Start a thread</h2></div>' +
           '<form class="stack" id="threadForm" style="max-width:640px">' +
@@ -321,7 +344,7 @@ import { isConfigured } from './firebase.js';
 
         document.getElementById('threadForm').addEventListener('submit', function (e) {
           e.preventDefault();
-          DB.createThread({
+          Data.createThread({
             title: document.getElementById('tTitle').value.trim(),
             category: document.getElementById('tCat').value,
             body: document.getElementById('tBody').value.trim()
