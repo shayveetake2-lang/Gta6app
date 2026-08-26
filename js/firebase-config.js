@@ -13,9 +13,3 @@ export const firebaseConfig = {
   appId: '1:681249196367:web:f70f4f41b981b1dc7e1d3a',
   measurementId: 'G-B4VV05SPYV'
 };
-
-/**
- * Client-side seeding is blocked by firestore.rules (guides and other people's
- * profiles are not client-writable). Use `npm run seed` instead.
- */
-export const SEED_ON_EMPTY = false;

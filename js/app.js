@@ -14,11 +14,12 @@ import { isConfigured } from './firebase.js';
 
   var state = { difficulty: 'all', query: '', category: 'all', accountQuery: '' };
 
-  var searchTimer = null;
-  function debounce(fn) {
+  // Each debounced handler needs its own timer, or the search inputs cancel each other.
+  function debounce(fn, wait) {
+    var timer = null;
     return function () {
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(fn, 200);
+      clearTimeout(timer);
+      timer = setTimeout(fn, wait || 200);
     };
   }
 
@@ -70,7 +71,7 @@ import { isConfigured } from './firebase.js';
           '<h3 class="thread__title">' + esc(t.title) + '</h3>' +
           '<p class="thread__meta">' + esc(t.category) + ' · ' + esc(t.author) + ' · ' + esc(t.createdAt) + '</p>' +
         '</span>' +
-        '<span class="thread__stats"><b>' + t.replies.length + '</b>replies</span>' +
+        '<span class="thread__stats"><b>' + (t.replyCount || 0) + '</b>' + (t.replyCount === 1 ? 'reply' : 'replies') + '</span>' +
       '</a>';
   }
 
@@ -100,19 +101,59 @@ import { isConfigured } from './firebase.js';
   }
 
   // Renders a failure instead of leaving a blank section, and stops the chain.
+  // Views with a live results container keep their toolbar so filters stay usable.
+  function renderError(err) {
+    var target = document.getElementById('guideResults') || document.getElementById('accountResults');
+    if (target) target.innerHTML = errorState(err);
+    else render(errorState(err));
+  }
+
   var Data = {};
   ['listUsers', 'getProfile', 'listWalkthroughs', 'getWalkthrough', 'listThreads',
     'getThread', 'createThread', 'addReply', 'categories'].forEach(function (method) {
     Data[method] = function () {
       return DB[method].apply(DB, arguments).catch(function (err) {
         console.error('[db] ' + method + ' failed:', err);
-        render(errorState(err));
+        renderError(err);
         return new Promise(function () {});
       });
     };
   });
 
   /* ---------- views ---------- */
+
+  // Set by the accounts view so the header search can refresh it in place.
+  var refreshAccounts = function () {};
+
+  function walkthroughDetail(id) {
+    Data.getWalkthrough(id).then(function (w) {
+      if (!w) return render(emptyState('That walkthrough could not be found.'));
+      render('' +
+        '<a class="btn btn--ghost" href="#/walkthroughs">← Back to guides</a>' +
+        '<div class="section-head"><h2>' + esc(w.title) + '</h2></div>' +
+        '<div class="detail">' +
+          '<div>' +
+            '<p class="card__meta">' + esc(w.summary) + '</p>' +
+            '<h3>Steps</h3>' +
+            '<ol class="steps">' + w.steps.map(function (s) {
+              return '<li>' + esc(s) + '</li>';
+            }).join('') + '</ol>' +
+          '</div>' +
+          '<aside class="sidecard">' +
+            '<span class="badge badge--' + esc(w.difficulty) + '">' + esc(w.difficulty) + '</span>' +
+            '<dl>' +
+              '<dt>Game</dt><dd>' + esc(w.game) + '</dd>' +
+              '<dt>Time</dt><dd>' + esc(w.duration) + ' min</dd>' +
+              '<dt>Author</dt><dd>' + esc(w.author) + '</dd>' +
+              '<dt>Updated</dt><dd>' + esc(w.updatedAt) + '</dd>' +
+            '</dl>' +
+            '<ul class="tags">' + w.tags.map(function (t) {
+              return '<li class="tag">#' + esc(t) + '</li>';
+            }).join('') + '</ul>' +
+          '</aside>' +
+        '</div>');
+    });
+  }
 
   var views = {
     '/': function () {
@@ -142,70 +183,55 @@ import { isConfigured } from './firebase.js';
     },
 
     '/walkthroughs': function (id) {
-      if (id) return views.walkthroughDetail(id);
+      if (id) return walkthroughDetail(id);
 
-      Data.listWalkthroughs({ difficulty: state.difficulty, query: state.query }).then(function (items) {
-        var levels = ['all', 'easy', 'medium', 'hard'];
-        render('' +
-          '<div class="section-head"><h2>Walkthroughs</h2><span class="card__meta">' + items.length + ' guides</span></div>' +
-          '<form class="toolbar" id="guideSearchForm" role="search">' +
-            '<div class="field field--grow">' +
-              '<label class="sr-only" for="guideSearch">Search guides</label>' +
-              '<input type="search" id="guideSearch" placeholder="Search guides…" autocomplete="off" value="' + esc(state.query) + '" />' +
-            '</div>' +
-          '</form>' +
-          '<div class="toolbar" id="filters">' + levels.map(function (l) {
-            return '<button class="chip' + (state.difficulty === l ? ' is-active' : '') + '" data-difficulty="' + l + '">' +
-              l.charAt(0).toUpperCase() + l.slice(1) + '</button>';
-          }).join('') + '</div>' +
-          (items.length
+      var levels = ['all', 'easy', 'medium', 'hard'];
+      render('' +
+        '<div class="section-head"><h2>Walkthroughs</h2><span class="card__meta" id="guideCount"></span></div>' +
+        '<form class="toolbar" id="guideSearchForm" role="search">' +
+          '<div class="field field--grow">' +
+            '<label class="sr-only" for="guideSearch">Search guides</label>' +
+            '<input type="search" id="guideSearch" placeholder="Search guides…" autocomplete="off" />' +
+          '</div>' +
+        '</form>' +
+        '<div class="toolbar" id="filters">' + levels.map(function (l) {
+          return '<button class="chip' + (state.difficulty === l ? ' is-active' : '') + '" data-difficulty="' + l + '">' +
+            l.charAt(0).toUpperCase() + l.slice(1) + '</button>';
+        }).join('') + '</div>' +
+        '<div id="guideResults" aria-live="polite">' + emptyState('Loading…') + '</div>');
+
+      var input = document.getElementById('guideSearch');
+      var results = document.getElementById('guideResults');
+      var count = document.getElementById('guideCount');
+      var filters = document.getElementById('filters');
+      input.value = state.query;
+
+      function update() {
+        Data.listWalkthroughs({ difficulty: state.difficulty, query: state.query }).then(function (items) {
+          count.textContent = items.length + (items.length === 1 ? ' guide' : ' guides');
+          results.innerHTML = items.length
             ? '<div class="grid">' + items.map(walkthroughCard).join('') + '</div>'
-            : emptyState('No walkthroughs match your filters.')));
-
-        document.getElementById('guideSearchForm').addEventListener('submit', function (e) { e.preventDefault(); });
-        document.getElementById('guideSearch').addEventListener('input', debounce(function () {
-          state.query = document.getElementById('guideSearch').value;
-          views['/walkthroughs']();
-          document.getElementById('guideSearch').focus();
-        }));
-
-        document.getElementById('filters').addEventListener('click', function (e) {
-          var btn = e.target.closest('[data-difficulty]');
-          if (!btn) return;
-          state.difficulty = btn.dataset.difficulty;
-          views['/walkthroughs']();
+            : emptyState('No walkthroughs match your filters.');
         });
-      });
-    },
+      }
 
-    walkthroughDetail: function (id) {
-      Data.getWalkthrough(id).then(function (w) {
-        if (!w) return render(emptyState('That walkthrough could not be found.'));
-        render('' +
-          '<a class="btn btn--ghost" href="#/walkthroughs">← Back to guides</a>' +
-          '<div class="section-head"><h2>' + esc(w.title) + '</h2></div>' +
-          '<div class="detail">' +
-            '<div>' +
-              '<p class="card__meta">' + esc(w.summary) + '</p>' +
-              '<h3>Steps</h3>' +
-              '<ol class="steps">' + w.steps.map(function (s) {
-                return '<li>' + esc(s) + '</li>';
-              }).join('') + '</ol>' +
-            '</div>' +
-            '<aside class="sidecard">' +
-              '<span class="badge badge--' + esc(w.difficulty) + '">' + esc(w.difficulty) + '</span>' +
-              '<dl>' +
-                '<dt>Game</dt><dd>' + esc(w.game) + '</dd>' +
-                '<dt>Time</dt><dd>' + esc(w.duration) + ' min</dd>' +
-                '<dt>Author</dt><dd>' + esc(w.author) + '</dd>' +
-                '<dt>Updated</dt><dd>' + esc(w.updatedAt) + '</dd>' +
-              '</dl>' +
-              '<ul class="tags">' + w.tags.map(function (t) {
-                return '<li class="tag">#' + esc(t) + '</li>';
-              }).join('') + '</ul>' +
-            '</aside>' +
-          '</div>');
+      document.getElementById('guideSearchForm').addEventListener('submit', function (e) { e.preventDefault(); });
+      input.addEventListener('input', debounce(function () {
+        state.query = input.value;
+        update();
+      }));
+
+      filters.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-difficulty]');
+        if (!btn) return;
+        state.difficulty = btn.dataset.difficulty;
+        filters.querySelectorAll('.chip').forEach(function (chip) {
+          chip.classList.toggle('is-active', chip === btn);
+        });
+        update();
       });
+
+      update();
     },
 
     '/accounts': function () {
@@ -236,8 +262,14 @@ import { isConfigured } from './firebase.js';
       document.getElementById('accountSearchForm').addEventListener('submit', function (e) { e.preventDefault(); });
       input.addEventListener('input', debounce(function () {
         state.accountQuery = input.value;
+        searchInput.value = input.value; // keep the header field mirrored
         update();
       }));
+
+      refreshAccounts = function () {
+        if (input.value !== state.accountQuery) input.value = state.accountQuery;
+        update();
+      };
       update();
       if (state.accountQuery) input.focus();
     },
@@ -407,13 +439,13 @@ import { isConfigured } from './firebase.js';
   /* ---------- theme ---------- */
 
   var savedTheme = null;
-  try { savedTheme = localStorage.getItem('wh.theme'); } catch (e) { /* storage blocked */ }
+  try { savedTheme = localStorage.getItem('gta6.theme'); } catch (e) { /* storage blocked */ }
   if (savedTheme) document.documentElement.dataset.theme = savedTheme;
 
   themeToggle.addEventListener('click', function () {
     var next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
     document.documentElement.dataset.theme = next;
-    try { localStorage.setItem('wh.theme', next); } catch (e) { /* storage blocked */ }
+    try { localStorage.setItem('gta6.theme', next); } catch (e) { /* storage blocked */ }
   });
 
   /* ---------- search ---------- */
@@ -421,21 +453,14 @@ import { isConfigured } from './firebase.js';
   searchForm.addEventListener('submit', function (e) {
     e.preventDefault();
     state.accountQuery = searchInput.value;
-    if (parseHash().path === '/accounts') views['/accounts']();
+    if (parseHash().path === '/accounts') refreshAccounts();
     else location.hash = '#/accounts';
   });
 
   searchInput.addEventListener('input', debounce(function () {
     state.accountQuery = searchInput.value;
-    if (parseHash().path === '/accounts') {
-      var pageInput = document.getElementById('accountSearch');
-      if (pageInput && document.activeElement !== pageInput) {
-        pageInput.value = state.accountQuery;
-        pageInput.dispatchEvent(new Event('input'));
-      }
-    } else if (state.accountQuery.trim()) {
-      location.hash = '#/accounts';
-    }
+    if (parseHash().path === '/accounts') refreshAccounts();
+    else if (state.accountQuery.trim()) location.hash = '#/accounts';
   }));
 
   document.getElementById('year').textContent = new Date().getFullYear();

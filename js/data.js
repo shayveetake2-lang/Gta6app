@@ -6,10 +6,9 @@
  */
 import {
   collection, doc, getDoc, getDocs, addDoc, query, where,
-  orderBy, limit, startAt, endAt, serverTimestamp, increment, updateDoc, writeBatch
+  orderBy, limit, startAt, endAt, serverTimestamp, increment, updateDoc
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { ready, getDb, getUser, displayName } from './firebase.js';
-import { SEED_ON_EMPTY } from './firebase-config.js';
 import { SEED, CATEGORIES } from './seed.js';
 
 /* ------------------------------------------------------------------ helpers */
@@ -37,7 +36,7 @@ function matchesUser(u, needle) {
 
 /* -------------------------------------------------------- local (fallback) */
 
-const LOCAL_KEY = 'wh.db.v1';
+const LOCAL_KEY = 'gta6.db.v2';
 
 function loadLocal() {
   try {
@@ -48,7 +47,6 @@ function loadLocal() {
 }
 
 const local = loadLocal();
-if (!local.users) local.users = clone(SEED.users); // store predates the accounts section
 
 function saveLocal() {
   try {
@@ -74,7 +72,8 @@ const localBackend = {
     return clone(local.walkthroughs.find((w) => w.id === id) || null);
   },
   async listThreads(category) {
-    return clone(local.threads.filter((t) => !category || category === 'all' || t.category === category));
+    return clone(local.threads.filter((t) => !category || category === 'all' || t.category === category))
+      .map((t) => ({ ...t, replyCount: t.replies.length }));
   },
   async getThread(id) {
     return clone(local.threads.find((t) => t.id === id) || null);
@@ -151,15 +150,12 @@ function firestoreBackend(db) {
     async listThreads(category) {
       const filters = !category || category === 'all' ? [] : [where('category', '==', category)];
       const snap = await getDocs(query(threadsRef, ...filters, orderBy('createdAt', 'desc'), limit(50)));
-      return snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          id: d.id,
-          ...data,
-          createdAt: toDateString(data.createdAt),
-          replies: new Array(data.replyCount || 0) // the list view only needs the count
-        };
-      });
+      return snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        createdAt: toDateString(d.data().createdAt),
+        replyCount: d.data().replyCount || 0
+      }));
     },
 
     async getThread(id) {
@@ -192,7 +188,7 @@ function firestoreBackend(db) {
         createdAt: serverTimestamp(),
         replyCount: 0
       });
-      return { id: ref.id, title, category, body, author, createdAt: today(), replies: [] };
+      return { id: ref.id, title, category, body, author, createdAt: today(), replies: [], replyCount: 0 };
     },
 
     async addReply(threadId, { body }) {
@@ -210,22 +206,6 @@ function firestoreBackend(db) {
   };
 }
 
-async function seedFirestore(db) {
-  const existing = await getDocs(query(collection(db, 'walkthroughs'), limit(1)));
-  if (!existing.empty) return;
-
-  const batch = writeBatch(db);
-  SEED.users.forEach(({ id, ...data }) =>
-    batch.set(doc(db, 'users', id), { ...data, usernameLower: data.username.toLowerCase() }));
-  SEED.walkthroughs.forEach(({ id, ...data }) => batch.set(doc(db, 'walkthroughs', id), data));
-  SEED.threads.forEach(({ id, replies, ...data }) => {
-    batch.set(doc(db, 'threads', id), { ...data, replyCount: replies.length });
-    replies.forEach(({ id: rid, ...reply }) => batch.set(doc(db, 'threads', id, 'replies', rid), reply));
-  });
-  await batch.commit();
-  console.info('[firebase] Seeded starter content.');
-}
-
 /* ---------------------------------------------------------------- exported */
 
 let backend = localBackend;
@@ -236,13 +216,6 @@ export const dbReady = (async () => {
   const store = getDb();
   if (!connected || !store) return false;
   backend = firestoreBackend(store);
-  if (SEED_ON_EMPTY) {
-    try {
-      await seedFirestore(store);
-    } catch (err) {
-      console.warn('[firebase] Seeding skipped:', err.message);
-    }
-  }
   return true;
 })();
 
