@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0e1116" />
+  <meta name="description" content="Game walkthroughs, guides and community forum." />
+  <title>Walkthrough Hub</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="topbar">
+    <div class="topbar__inner container">
+      <button class="icon-btn nav-toggle" id="navToggle" aria-expanded="false" aria-controls="primaryNav" aria-label="Open menu">
+        <span class="burger" aria-hidden="true"></span>
+      </button>
+
+      <a class="brand" href="#/">
+        <span class="brand__mark" aria-hidden="true">WH</span>
+        <span class="brand__text">Walkthrough<b>Hub</b></span>
+      </a>
+
+      <nav class="nav" id="primaryNav" aria-label="Primary">
+        <ul class="nav__list">
+          <li><a class="nav__link" href="#/" data-route-link="/">Home</a></li>
+          <li><a class="nav__link" href="#/walkthroughs" data-route-link="/walkthroughs">Walkthroughs</a></li>
+          <li><a class="nav__link" href="#/forum" data-route-link="/forum">Forum</a></li>
+          <li><a class="nav__link" href="#/accounts" data-route-link="/accounts">Accounts</a></li>
+          <li><a class="nav__link" href="#/about" data-route-link="/about">About</a></li>
+        </ul>
+      </nav>
+
+      <form class="search" role="search" id="globalSearch">
+        <input type="search" id="globalSearchInput" placeholder="Search accounts…" aria-label="Search accounts" autocomplete="off" />
+      </form>
+
+      <button class="icon-btn" id="themeToggle" aria-label="Toggle color theme" title="Toggle theme">◐</button>
+    </div>
+  </header>
+
+  <div class="scrim" id="scrim" hidden></div>
+
+  <main id="main" class="container" tabindex="-1"></main>
+
+  <nav class="tabbar" aria-label="Mobile">
+    <a href="#/" data-route-link="/"><span aria-hidden="true">⌂</span>Home</a>
+    <a href="#/walkthroughs" data-route-link="/walkthroughs"><span aria-hidden="true">▤</span>Guides</a>
+    <a href="#/forum" data-route-link="/forum"><span aria-hidden="true">💬</span>Forum</a>
+    <a href="#/accounts" data-route-link="/accounts"><span aria-hidden="true">👤</span>Accounts</a>
+  </nav>
+
+  <footer class="footer">
+    <div class="container footer__inner">
+      <p>© <span id="year"></span> Walkthrough Hub — community-built guides.</p>
+      <ul class="footer__links">
+        <li><a href="#/about">About</a></li>
+        <li><a href="#/forum">Forum</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

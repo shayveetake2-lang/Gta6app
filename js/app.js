@@ -1,0 +1,423 @@
+import { DB, dbReady } from './data.js';
+import { isConfigured } from './firebase.js';
+
+(function () {
+  'use strict';
+
+  var main = document.getElementById('main');
+  var navToggle = document.getElementById('navToggle');
+  var nav = document.getElementById('primaryNav');
+  var scrim = document.getElementById('scrim');
+  var themeToggle = document.getElementById('themeToggle');
+  var searchForm = document.getElementById('globalSearch');
+  var searchInput = document.getElementById('globalSearchInput');
+
+  var state = { difficulty: 'all', query: '', category: 'all', accountQuery: '' };
+
+  var searchTimer = null;
+  function debounce(fn) {
+    return function () {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(fn, 200);
+    };
+  }
+
+  /* ---------- helpers ---------- */
+
+  function esc(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function initials(name) {
+    return esc(String(name).slice(0, 2).toUpperCase());
+  }
+
+  function render(html) {
+    main.innerHTML = html;
+    main.focus();
+  }
+
+  function parseHash() {
+    var raw = location.hash.replace(/^#/, '') || '/';
+    var parts = raw.split('/').filter(Boolean);
+    return { path: '/' + (parts[0] || ''), id: parts[1] || null };
+  }
+
+  /* ---------- shared partials ---------- */
+
+  function walkthroughCard(w) {
+    return '' +
+      '<a class="card" href="#/walkthroughs/' + esc(w.id) + '">' +
+        '<div class="card__media" aria-hidden="true">' + esc(w.cover) + '</div>' +
+        '<div class="card__body">' +
+          '<span class="badge badge--' + esc(w.difficulty) + '">' + esc(w.difficulty) + '</span>' +
+          '<h3 class="card__title">' + esc(w.title) + '</h3>' +
+          '<p class="card__meta">' + esc(w.duration) + ' min · by ' + esc(w.author) + ' · updated ' + esc(w.updatedAt) + '</p>' +
+          '<ul class="tags">' + w.tags.map(function (t) {
+            return '<li class="tag">#' + esc(t) + '</li>';
+          }).join('') + '</ul>' +
+        '</div>' +
+      '</a>';
+  }
+
+  function threadRow(t) {
+    return '' +
+      '<a class="thread" href="#/thread/' + esc(t.id) + '">' +
+        '<span class="avatar" aria-hidden="true">' + initials(t.author) + '</span>' +
+        '<span class="thread__body">' +
+          '<h3 class="thread__title">' + esc(t.title) + '</h3>' +
+          '<p class="thread__meta">' + esc(t.category) + ' · ' + esc(t.author) + ' · ' + esc(t.createdAt) + '</p>' +
+        '</span>' +
+        '<span class="thread__stats"><b>' + t.replies.length + '</b>replies</span>' +
+      '</a>';
+  }
+
+  function accountCard(u) {
+    return '' +
+      '<a class="card card--account" href="#/account/' + esc(u.id) + '">' +
+        '<div class="account__head">' +
+          '<span class="avatar avatar--lg" aria-hidden="true">' + initials(u.displayName || u.username) + '</span>' +
+          '<div>' +
+            '<h3 class="card__title">' + esc(u.displayName || u.username) + '</h3>' +
+            '<p class="card__meta">@' + esc(u.username) + ' · ' + esc(u.role || 'Member') + '</p>' +
+          '</div>' +
+        '</div>' +
+        '<p class="card__meta account__bio">' + esc(u.bio || '') + '</p>' +
+      '</a>';
+  }
+
+  function emptyState(message) {
+    return '<p class="empty">' + esc(message) + '</p>';
+  }
+
+  /* ---------- views ---------- */
+
+  var views = {
+    '/': function () {
+      Promise.all([DB.listWalkthroughs({}), DB.listThreads(), DB.listUsers({})]).then(function (res) {
+        var guides = res[0].slice(0, 3);
+        var threads = res[1].slice(0, 3);
+        var members = res[2].slice(0, 4);
+        render('' +
+          '<section class="hero">' +
+            '<h1>Every walkthrough, in one place.</h1>' +
+            '<p>Step-by-step guides written and reviewed by the community, plus a forum to ask what the guides do not cover.</p>' +
+            '<div class="toolbar">' +
+              '<a class="btn btn--primary" href="#/walkthroughs">Browse walkthroughs</a>' +
+              '<a class="btn btn--ghost" href="#/forum">Visit the forum</a>' +
+            '</div>' +
+          '</section>' +
+          '<div class="section-head"><h2>Latest guides</h2><a href="#/walkthroughs">View all</a></div>' +
+          '<div class="grid">' + guides.map(walkthroughCard).join('') + '</div>' +
+          '<div class="section-head"><h2>Active discussions</h2><a href="#/forum">View all</a></div>' +
+          '<div class="stack">' + threads.map(threadRow).join('') + '</div>' +
+          '<div class="section-head"><h2>Members</h2><a href="#/accounts">Search accounts</a></div>' +
+          '<div class="grid">' + members.map(accountCard).join('') + '</div>');
+      });
+    },
+
+    '/walkthroughs': function (id) {
+      if (id) return views.walkthroughDetail(id);
+
+      DB.listWalkthroughs({ difficulty: state.difficulty, query: state.query }).then(function (items) {
+        var levels = ['all', 'easy', 'medium', 'hard'];
+        render('' +
+          '<div class="section-head"><h2>Walkthroughs</h2><span class="card__meta">' + items.length + ' guides</span></div>' +
+          '<form class="toolbar" id="guideSearchForm" role="search">' +
+            '<div class="field field--grow">' +
+              '<label class="sr-only" for="guideSearch">Search guides</label>' +
+              '<input type="search" id="guideSearch" placeholder="Search guides…" autocomplete="off" value="' + esc(state.query) + '" />' +
+            '</div>' +
+          '</form>' +
+          '<div class="toolbar" id="filters">' + levels.map(function (l) {
+            return '<button class="chip' + (state.difficulty === l ? ' is-active' : '') + '" data-difficulty="' + l + '">' +
+              l.charAt(0).toUpperCase() + l.slice(1) + '</button>';
+          }).join('') + '</div>' +
+          (items.length
+            ? '<div class="grid">' + items.map(walkthroughCard).join('') + '</div>'
+            : emptyState('No walkthroughs match your filters.')));
+
+        document.getElementById('guideSearchForm').addEventListener('submit', function (e) { e.preventDefault(); });
+        document.getElementById('guideSearch').addEventListener('input', debounce(function () {
+          state.query = document.getElementById('guideSearch').value;
+          views['/walkthroughs']();
+          document.getElementById('guideSearch').focus();
+        }));
+
+        document.getElementById('filters').addEventListener('click', function (e) {
+          var btn = e.target.closest('[data-difficulty]');
+          if (!btn) return;
+          state.difficulty = btn.dataset.difficulty;
+          views['/walkthroughs']();
+        });
+      });
+    },
+
+    walkthroughDetail: function (id) {
+      DB.getWalkthrough(id).then(function (w) {
+        if (!w) return render(emptyState('That walkthrough could not be found.'));
+        render('' +
+          '<a class="btn btn--ghost" href="#/walkthroughs">← Back to guides</a>' +
+          '<div class="section-head"><h2>' + esc(w.title) + '</h2></div>' +
+          '<div class="detail">' +
+            '<div>' +
+              '<p class="card__meta">' + esc(w.summary) + '</p>' +
+              '<h3>Steps</h3>' +
+              '<ol class="steps">' + w.steps.map(function (s) {
+                return '<li>' + esc(s) + '</li>';
+              }).join('') + '</ol>' +
+            '</div>' +
+            '<aside class="sidecard">' +
+              '<span class="badge badge--' + esc(w.difficulty) + '">' + esc(w.difficulty) + '</span>' +
+              '<dl>' +
+                '<dt>Game</dt><dd>' + esc(w.game) + '</dd>' +
+                '<dt>Time</dt><dd>' + esc(w.duration) + ' min</dd>' +
+                '<dt>Author</dt><dd>' + esc(w.author) + '</dd>' +
+                '<dt>Updated</dt><dd>' + esc(w.updatedAt) + '</dd>' +
+              '</dl>' +
+              '<ul class="tags">' + w.tags.map(function (t) {
+                return '<li class="tag">#' + esc(t) + '</li>';
+              }).join('') + '</ul>' +
+            '</aside>' +
+          '</div>');
+      });
+    },
+
+    '/accounts': function () {
+      render('' +
+        '<div class="section-head"><h2>Accounts</h2><span class="card__meta" id="accountCount"></span></div>' +
+        '<form class="toolbar" id="accountSearchForm" role="search">' +
+          '<div class="field field--grow">' +
+            '<label class="sr-only" for="accountSearch">Search accounts</label>' +
+            '<input type="search" id="accountSearch" placeholder="Search by username, name, bio or location…" autocomplete="off" />' +
+          '</div>' +
+        '</form>' +
+        '<div id="accountResults" aria-live="polite">' + emptyState('Searching…') + '</div>');
+
+      var input = document.getElementById('accountSearch');
+      var results = document.getElementById('accountResults');
+      var count = document.getElementById('accountCount');
+      input.value = state.accountQuery;
+
+      function update() {
+        DB.listUsers({ query: state.accountQuery }).then(function (users) {
+          count.textContent = users.length + (users.length === 1 ? ' account' : ' accounts');
+          results.innerHTML = users.length
+            ? '<div class="grid">' + users.map(accountCard).join('') + '</div>'
+            : emptyState('No accounts match “' + state.accountQuery + '”.');
+        });
+      }
+
+      document.getElementById('accountSearchForm').addEventListener('submit', function (e) { e.preventDefault(); });
+      input.addEventListener('input', debounce(function () {
+        state.accountQuery = input.value;
+        update();
+      }));
+      update();
+      if (state.accountQuery) input.focus();
+    },
+
+    '/account': function (id) {
+      if (!id) return views['/accounts']();
+      Promise.all([DB.getProfile(id), DB.listWalkthroughs({}), DB.listThreads()]).then(function (res) {
+        var u = res[0];
+        if (!u) return render(emptyState('That account could not be found.'));
+        var guides = res[1].filter(function (w) { return w.author === u.username; });
+        var threads = res[2].filter(function (t) { return t.author === u.username; });
+
+        render('' +
+          '<a class="btn btn--ghost" href="#/accounts">← Back to accounts</a>' +
+          '<section class="profile">' +
+            '<span class="avatar avatar--xl" aria-hidden="true">' + initials(u.displayName || u.username) + '</span>' +
+            '<div>' +
+              '<h2 class="profile__name">' + esc(u.displayName || u.username) + '</h2>' +
+              '<p class="card__meta">@' + esc(u.username) + ' · ' + esc(u.role || 'Member') + '</p>' +
+              '<p>' + esc(u.bio || '') + '</p>' +
+              '<ul class="tags">' +
+                '<li class="tag">Joined ' + esc(u.joinedAt) + '</li>' +
+                (u.location ? '<li class="tag">' + esc(u.location) + '</li>' : '') +
+                '<li class="tag">' + guides.length + ' guides</li>' +
+                '<li class="tag">' + threads.length + ' threads</li>' +
+              '</ul>' +
+            '</div>' +
+          '</section>' +
+          '<div class="section-head"><h2>Guides by ' + esc(u.username) + '</h2></div>' +
+          (guides.length ? '<div class="grid">' + guides.map(walkthroughCard).join('') + '</div>' : emptyState('No guides yet.')) +
+          '<div class="section-head"><h2>Threads by ' + esc(u.username) + '</h2></div>' +
+          (threads.length ? '<div class="stack">' + threads.map(threadRow).join('') + '</div>' : emptyState('No threads yet.')));
+      });
+    },
+
+    '/forum': function () {
+      Promise.all([DB.listThreads(state.category), DB.categories()]).then(function (res) {
+        var threads = res[0];
+        var cats = ['all'].concat(res[1]);
+        render('' +
+          '<div class="section-head"><h2>Forum</h2><a href="#/new-thread">New thread</a></div>' +
+          '<div class="toolbar" id="cats">' + cats.map(function (c) {
+            return '<button class="chip' + (state.category === c ? ' is-active' : '') + '" data-cat="' + esc(c) + '">' + esc(c === 'all' ? 'All' : c) + '</button>';
+          }).join('') + '</div>' +
+          (threads.length
+            ? '<div class="stack">' + threads.map(threadRow).join('') + '</div>'
+            : emptyState('No threads in this category yet.')));
+
+        document.getElementById('cats').addEventListener('click', function (e) {
+          var btn = e.target.closest('[data-cat]');
+          if (!btn) return;
+          state.category = btn.dataset.cat;
+          views['/forum']();
+        });
+      });
+    },
+
+    '/thread': function (id) {
+      DB.getThread(id).then(function (t) {
+        if (!t) return render(emptyState('That thread could not be found.'));
+        render('' +
+          '<a class="btn btn--ghost" href="#/forum">← Back to forum</a>' +
+          '<div class="section-head"><h2>' + esc(t.title) + '</h2></div>' +
+          '<div class="post">' +
+            '<span class="avatar" aria-hidden="true">' + initials(t.author) + '</span>' +
+            '<div><p class="thread__meta">' + esc(t.author) + ' · ' + esc(t.createdAt) + '</p><p>' + esc(t.body) + '</p></div>' +
+          '</div>' +
+          t.replies.map(function (r) {
+            return '<div class="post">' +
+              '<span class="avatar" aria-hidden="true">' + initials(r.author) + '</span>' +
+              '<div><p class="thread__meta">' + esc(r.author) + ' · ' + esc(r.createdAt) + '</p><p>' + esc(r.body) + '</p></div>' +
+            '</div>';
+          }).join('') +
+          '<form class="stack" id="replyForm" style="margin-top:1.5rem">' +
+            '<div class="field"><label for="replyBody">Your reply</label>' +
+            '<textarea id="replyBody" required maxlength="2000"></textarea></div>' +
+            '<div><button class="btn btn--primary" type="submit">Post reply</button></div>' +
+          '</form>');
+
+        document.getElementById('replyForm').addEventListener('submit', function (e) {
+          e.preventDefault();
+          var body = document.getElementById('replyBody').value.trim();
+          if (!body) return;
+          DB.addReply(t.id, { body: body }).then(function () { views['/thread'](t.id); });
+        });
+      });
+    },
+
+    '/new-thread': function () {
+      DB.categories().then(function (cats) {
+        render('' +
+          '<div class="section-head"><h2>Start a thread</h2></div>' +
+          '<form class="stack" id="threadForm" style="max-width:640px">' +
+            '<div class="field"><label for="tTitle">Title</label>' +
+            '<input id="tTitle" required maxlength="120" /></div>' +
+            '<div class="field"><label for="tCat">Category</label><select id="tCat">' +
+              cats.map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('') +
+            '</select></div>' +
+            '<div class="field"><label for="tBody">Message</label>' +
+            '<textarea id="tBody" required maxlength="4000"></textarea></div>' +
+            '<div class="toolbar"><button class="btn btn--primary" type="submit">Publish</button>' +
+            '<a class="btn btn--ghost" href="#/forum">Cancel</a></div>' +
+          '</form>');
+
+        document.getElementById('threadForm').addEventListener('submit', function (e) {
+          e.preventDefault();
+          DB.createThread({
+            title: document.getElementById('tTitle').value.trim(),
+            category: document.getElementById('tCat').value,
+            body: document.getElementById('tBody').value.trim()
+          }).then(function (t) { location.hash = '#/thread/' + t.id; });
+        });
+      });
+    },
+
+    '/about': function () {
+      render('' +
+        '<div class="section-head"><h2>About</h2></div>' +
+        '<div class="sidecard" style="max-width:640px">' +
+          '<p>Walkthrough Hub is a community library of game guides backed by a database of walkthroughs, steps and forum threads.</p>' +
+          '<p class="card__meta">Backend: ' + (isConfigured ? 'Cloud Firestore' : 'local browser storage — add your project keys in js/firebase-config.js to go live') + '.</p>' +
+        '</div>');
+    }
+  };
+
+  /* ---------- router ---------- */
+
+  function setActiveLinks(path) {
+    var map = { '/thread': '/forum', '/new-thread': '/forum', '/account': '/accounts' };
+    var linkPath = map[path] || path;
+    document.querySelectorAll('[data-route-link]').forEach(function (a) {
+      a.classList.toggle('is-active', a.dataset.routeLink === linkPath);
+    });
+  }
+
+  function route() {
+    var r = parseHash();
+    var view = views[r.path] || views['/'];
+    setActiveLinks(views[r.path] ? r.path : '/');
+    closeMenu();
+    window.scrollTo(0, 0);
+    view(r.id);
+  }
+
+  /* ---------- menu ---------- */
+
+  function openMenu() {
+    nav.classList.add('is-open');
+    navToggle.setAttribute('aria-expanded', 'true');
+    scrim.hidden = false;
+  }
+
+  function closeMenu() {
+    nav.classList.remove('is-open');
+    navToggle.setAttribute('aria-expanded', 'false');
+    scrim.hidden = true;
+  }
+
+  navToggle.addEventListener('click', function () {
+    nav.classList.contains('is-open') ? closeMenu() : openMenu();
+  });
+  scrim.addEventListener('click', closeMenu);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeMenu();
+  });
+
+  /* ---------- theme ---------- */
+
+  var savedTheme = null;
+  try { savedTheme = localStorage.getItem('wh.theme'); } catch (e) { /* storage blocked */ }
+  if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+
+  themeToggle.addEventListener('click', function () {
+    var next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem('wh.theme', next); } catch (e) { /* storage blocked */ }
+  });
+
+  /* ---------- search ---------- */
+
+  searchForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    state.accountQuery = searchInput.value;
+    if (parseHash().path === '/accounts') views['/accounts']();
+    else location.hash = '#/accounts';
+  });
+
+  searchInput.addEventListener('input', debounce(function () {
+    state.accountQuery = searchInput.value;
+    if (parseHash().path === '/accounts') {
+      var pageInput = document.getElementById('accountSearch');
+      if (pageInput && document.activeElement !== pageInput) {
+        pageInput.value = state.accountQuery;
+        pageInput.dispatchEvent(new Event('input'));
+      }
+    } else if (state.accountQuery.trim()) {
+      location.hash = '#/accounts';
+    }
+  }));
+
+  document.getElementById('year').textContent = new Date().getFullYear();
+  window.addEventListener('hashchange', route);
+
+  main.innerHTML = emptyState('Loading…');
+  dbReady.then(route, route);
+})();

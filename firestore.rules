@@ -1,0 +1,80 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Guides are published from the console / an admin tool, not from the client.
+    match /walkthroughs/{walkthroughId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Public profiles. A signed-in user may only create/edit their own document,
+    // keyed by their auth uid, and may never change their own role.
+    match /users/{userId} {
+      allow read: if true;
+
+      allow create: if isOwner(userId)
+        && request.resource.data.username is string
+        && request.resource.data.username.size() >= 3
+        && request.resource.data.username.size() <= 24
+        && request.resource.data.username.matches('^[a-zA-Z0-9_]+$')
+        && request.resource.data.usernameLower == request.resource.data.username.lower()
+        && request.resource.data.displayName.size() <= 60
+        && request.resource.data.get('bio', '').size() <= 400
+        && request.resource.data.role == 'Member';
+
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data)
+             .affectedKeys().hasOnly(['displayName', 'bio', 'location'])
+        && request.resource.data.displayName.size() <= 60
+        && request.resource.data.get('bio', '').size() <= 400;
+
+      allow delete: if isOwner(userId);
+    }
+
+    match /threads/{threadId} {
+      allow read: if true;
+
+      allow create: if signedIn()
+        && isOwner(request.resource.data.authorUid)
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.body is string
+        && request.resource.data.body.size() > 0
+        && request.resource.data.body.size() <= 4000
+        && request.resource.data.category in ['General', 'Guides', 'Tech', 'Off-topic']
+        && request.resource.data.replyCount == 0
+        && request.resource.data.createdAt == request.time;
+
+      // Any signed-in user may bump the reply counter; nothing else may change.
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replyCount'])
+        && request.resource.data.replyCount == resource.data.replyCount + 1;
+
+      allow delete: if isOwner(resource.data.authorUid);
+
+      match /replies/{replyId} {
+        allow read: if true;
+
+        allow create: if signedIn()
+          && isOwner(request.resource.data.authorUid)
+          && request.resource.data.body is string
+          && request.resource.data.body.size() > 0
+          && request.resource.data.body.size() <= 2000
+          && request.resource.data.createdAt == request.time;
+
+        allow update, delete: if isOwner(resource.data.authorUid);
+      }
+    }
+  }
+}
