@@ -102,7 +102,7 @@ import { isConfigured } from './firebase.js';
         var members = res[2].slice(0, 4);
         render('' +
           '<section class="hero">' +
-            '<h1>Every walkthrough, in one place.</h1>' +
+            '<h1>Every GTA6 walkthrough, in one place.</h1>' +
             '<p>Step-by-step guides written and reviewed by the community, plus a forum to ask what the guides do not cover.</p>' +
             '<div class="toolbar">' +
               '<a class="btn btn--primary" href="#/walkthroughs">Browse walkthroughs</a>' +
@@ -334,7 +334,7 @@ import { isConfigured } from './firebase.js';
       render('' +
         '<div class="section-head"><h2>About</h2></div>' +
         '<div class="sidecard" style="max-width:640px">' +
-          '<p>Walkthrough Hub is a community library of game guides backed by a database of walkthroughs, steps and forum threads.</p>' +
+          '<p>GTA6 Walkthrough is a community library of game guides backed by a database of walkthroughs, steps and forum threads.</p>' +
           '<p class="card__meta">Backend: ' + (isConfigured ? 'Cloud Firestore' : 'local browser storage — add your project keys in js/firebase-config.js to go live') + '.</p>' +
         '</div>');
     }

@@ -54,7 +54,7 @@ const SEED = {
     {
       id: 'admin',
       username: 'admin',
-      displayName: 'Hub Staff',
+      displayName: 'GTA6 Walkthrough Staff',
       bio: 'Official account. Announcements and rule changes.',
       role: 'Admin',
       joinedAt: '2025-08-01',
@@ -164,7 +164,7 @@ const SEED = {
       category: 'General',
       author: 'admin',
       createdAt: '2026-08-01',
-      body: 'New to the hub? Say hello and tell us what you are playing.',
+      body: 'New here? Say hello and tell us what you are playing.',
       replies: []
     }
   ]
