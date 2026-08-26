@@ -1,0 +1,15 @@
+{
+  "name": "gta6-walkthrough",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 5173",
+    "seed": "node scripts/seed.mjs",
+    "deploy": "firebase deploy --only firestore:rules,firestore:indexes,hosting",
+    "emulate": "firebase emulators:start"
+  },
+  "devDependencies": {
+    "firebase-admin": "^13.0.1",
+    "firebase-tools": "^13.29.1"
+  }
+}

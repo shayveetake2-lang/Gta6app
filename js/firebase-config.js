@@ -13,5 +13,8 @@ export const firebaseConfig = {
   appId: 'YOUR_APP_ID'
 };
 
-/** Set to true to seed empty Firestore collections with the sample content. */
-export const SEED_ON_EMPTY = true;
+/**
+ * Client-side seeding is blocked by firestore.rules (guides and other people's
+ * profiles are not client-writable). Use `npm run seed` instead.
+ */
+export const SEED_ON_EMPTY = false;
