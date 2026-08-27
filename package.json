@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "python3 -m http.server 5173",
+    "check": "node --check api/server.mjs scripts/seed.mjs js/app.js js/content.js js/data.js js/firebase-config.js js/firebase.js js/seed.js",
     "api": "node api/server.mjs",
     "seed": "node scripts/seed.mjs",
     "deploy": "firebase deploy --only firestore:rules,firestore:indexes,hosting",
