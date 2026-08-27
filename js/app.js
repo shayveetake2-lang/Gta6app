@@ -11,6 +11,7 @@ import { isConfigured } from './firebase.js';
   var themeToggle = document.getElementById('themeToggle');
   var searchForm = document.getElementById('globalSearch');
   var searchInput = document.getElementById('globalSearchInput');
+  var achievementApi = window.ACHIEVEMENT_API_URL || 'http://localhost:8787';
 
   var state = { difficulty: 'all', query: '', category: 'all', accountQuery: '' };
   var trophyState = {};
@@ -117,6 +118,14 @@ import { isConfigured } from './firebase.js';
       '</a>';
   }
 
+  function achievementRow(item) {
+    return '<article class="achievement-row">' +
+      (item.iconUrl ? '<img class="achievement-row__icon" src="' + esc(item.iconUrl) + '" alt="" loading="lazy" />' : '<span class="achievement-row__icon achievement-row__icon--empty" aria-hidden="true">★</span>') +
+      '<div class="achievement-row__body"><h3>' + esc(item.achievementName) + '</h3><p class="card__meta">' + esc(item.gameTitle) + ' · ' + esc(item.description || 'No description') + '</p></div>' +
+      '<span class="badge achievement-status achievement-status--' + (item.unlocked ? 'unlocked' : 'locked') + '">' + (item.unlocked ? 'Unlocked' : 'Locked') + '</span>' +
+      '</article>';
+  }
+
   function emptyState(message) {
     return '<p class="empty">' + esc(message) + '</p>';
   }
@@ -157,6 +166,16 @@ import { isConfigured } from './firebase.js';
       });
     };
   });
+  Data.fetchAchievements = function (platform, params) {
+    var query = new URLSearchParams(params).toString();
+    return fetch(achievementApi + '/api/achievements/' + encodeURIComponent(platform) + '?' + query)
+      .then(function (response) {
+        return response.json().then(function (body) {
+          if (!response.ok) throw new Error(body.error || 'The achievement API could not be reached.');
+          return body.achievements || [];
+        });
+      });
+  };
 
   /* ---------- views ---------- */
 
@@ -198,6 +217,43 @@ import { isConfigured } from './firebase.js';
   }
 
   var views = {
+    '/achievements': function () {
+      render('' +
+        '<div class="section-head"><h2>Achievement tracker</h2><span class="card__meta">Steam · Xbox · PlayStation</span></div>' +
+        '<p class="card__meta">Connect a platform account through the API to compare unlocked and locked achievements in one format.</p>' +
+        '<form class="toolbar achievement-form" id="achievementForm">' +
+          '<div class="field"><label for="achievementPlatform">Platform</label><select id="achievementPlatform">' +
+            '<option value="steam">Steam</option><option value="xbox">Xbox</option><option value="playstation">PlayStation</option>' +
+          '</select></div>' +
+          '<div class="field field--grow"><label for="achievementAccount">Account ID</label><input id="achievementAccount" required placeholder="Steam ID, XUID, or PSN account ID" /></div>' +
+          '<div class="field field--grow"><label for="achievementGame">Game ID</label><input id="achievementGame" required placeholder="Steam app ID or platform title ID" /></div>' +
+          '<button class="btn btn--primary" type="submit">Load achievements</button>' +
+        '</form>' +
+        '<div id="achievementResults" aria-live="polite">' + emptyState('Enter an account and game ID to load achievements.') + '</div>');
+
+      var form = document.getElementById('achievementForm');
+      var platform = document.getElementById('achievementPlatform');
+      var account = document.getElementById('achievementAccount');
+      var game = document.getElementById('achievementGame');
+      var results = document.getElementById('achievementResults');
+      platform.addEventListener('change', function () {
+        account.placeholder = platform.value === 'steam' ? '64-bit Steam ID' : platform.value === 'xbox' ? 'Xbox XUID' : 'PSN account ID';
+      });
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var params = platform.value === 'steam' ? { steamId: account.value.trim(), appId: game.value.trim() }
+          : platform.value === 'xbox' ? { xuid: account.value.trim(), titleId: game.value.trim() }
+          : { accountId: account.value.trim(), titleId: game.value.trim() };
+        results.innerHTML = emptyState('Loading achievements…');
+        Data.fetchAchievements(platform.value, params).then(function (items) {
+          var unlocked = items.filter(function (item) { return item.unlocked; }).length;
+          results.innerHTML = '<div class="section-head"><h3>' + unlocked + ' of ' + items.length + ' unlocked</h3></div>' +
+            (items.length ? '<div class="achievement-list">' + items.map(achievementRow).join('') + '</div>' : emptyState('No achievements were returned.'));
+        }).catch(function (error) {
+          results.innerHTML = errorState(error) + '<p class="card__meta achievement-help">Start the API with <code>npm run api</code>, then configure the platform values in <code>.env</code>.</p>';
+        });
+      });
+    },
     '/': function () {
       Promise.all([Data.listWalkthroughs({}), Data.listThreads(), Data.listUsers({})]).then(function (res) {
         var guides = res[0].slice(0, 3);
