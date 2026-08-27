@@ -9,7 +9,8 @@ import {
   orderBy, limit, startAt, endAt, serverTimestamp, increment, updateDoc
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { ready, getDb, getUser, displayName } from './firebase.js';
-import { SEED, CATEGORIES } from './seed.js';
+import { SEED, CATEGORIES, TROPHIES } from './seed.js';
+import { CONTENT_SECTIONS } from './content.js';
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -91,6 +92,20 @@ const localBackend = {
     local.threads.unshift(thread);
     saveLocal();
     return clone(thread);
+  },
+  async likeThread(threadId) {
+    const thread = local.threads.find((t) => t.id === threadId);
+    if (!thread) throw new Error('Thread not found');
+    thread.likes = (thread.likes || 0) + 1;
+    saveLocal();
+    return clone(thread);
+  },
+  async likeWalkthrough(walkthroughId) {
+    const walkthrough = local.walkthroughs.find((w) => w.id === walkthroughId);
+    if (!walkthrough) throw new Error('Walkthrough not found');
+    walkthrough.likes = (walkthrough.likes || 0) + 1;
+    saveLocal();
+    return clone(walkthrough);
   },
   async addReply(threadId, { body, author }) {
     const thread = local.threads.find((t) => t.id === threadId);
@@ -191,6 +206,16 @@ function firestoreBackend(db) {
       return { id: ref.id, title, category, body, author, createdAt: today(), replies: [], replyCount: 0 };
     },
 
+    async likeThread(threadId) {
+      await updateDoc(doc(db, 'threads', threadId), { likes: increment(1) });
+      return this.getThread(threadId);
+    },
+
+    async likeWalkthrough(walkthroughId) {
+      await updateDoc(doc(db, 'walkthroughs', walkthroughId), { likes: increment(1) });
+      return this.getWalkthrough(walkthroughId);
+    },
+
     async addReply(threadId, { body }) {
       const user = getUser();
       const reply = {
@@ -227,6 +252,10 @@ export const DB = {
   listThreads: (category) => backend.listThreads(category),
   getThread: (id) => backend.getThread(id),
   createThread: (input) => backend.createThread(input),
+  likeThread: (id) => backend.likeThread(id),
+  likeWalkthrough: (id) => backend.likeWalkthrough(id),
   addReply: (threadId, input) => backend.addReply(threadId, input),
-  categories: async () => CATEGORIES.slice()
+  categories: async () => CATEGORIES.slice(),
+  listTrophies: async () => clone(TROPHIES),
+  listContent: async () => clone(CONTENT_SECTIONS)
 };

@@ -13,6 +13,8 @@ import { isConfigured } from './firebase.js';
   var searchInput = document.getElementById('globalSearchInput');
 
   var state = { difficulty: 'all', query: '', category: 'all', accountQuery: '' };
+  var trophyState = {};
+  try { trophyState = JSON.parse(localStorage.getItem('gta6.trophies.v1') || '{}'); } catch (e) { /* storage blocked */ }
 
   // Each debounced handler needs its own timer, or the search inputs cancel each other.
   function debounce(fn, wait) {
@@ -33,6 +35,30 @@ import { isConfigured } from './firebase.js';
 
   function initials(name) {
     return esc(String(name).slice(0, 2).toUpperCase());
+  }
+
+  function communityStats(username, guides, threads) {
+    var authoredGuides = guides.filter(function (w) { return w.author === username; });
+    var authoredThreads = threads.filter(function (t) { return t.author === username; });
+    var authoredReplies = threads.reduce(function (total, t) {
+      return total + (t.replies || []).filter(function (r) { return r.author === username; }).length;
+    }, 0);
+    var posts = authoredGuides.length + authoredThreads.length + authoredReplies;
+    var likes = authoredGuides.concat(authoredThreads).reduce(function (total, item) {
+      return total + (Number(item.likes) || 0);
+    }, 0);
+    var points = posts * 10 + likes * 5;
+    return { posts: posts, likes: likes, points: points, level: Math.min(10, 1 + Math.floor(points / 50)) };
+  }
+
+  function levelTag(stats) {
+    return '<li class="tag tag--level">Level ' + stats.level + '</li>';
+  }
+
+  function decorateUsers(users, guides, threads) {
+    return users.map(function (u) {
+      return Object.assign({}, u, { community: communityStats(u.username, guides, threads) });
+    });
   }
 
   function render(html) {
@@ -56,6 +82,7 @@ import { isConfigured } from './firebase.js';
           '<span class="badge badge--' + esc(w.difficulty) + '">' + esc(w.difficulty) + '</span>' +
           '<h3 class="card__title">' + esc(w.title) + '</h3>' +
           '<p class="card__meta">' + esc(w.duration) + ' min · by ' + esc(w.author) + ' · updated ' + esc(w.updatedAt) + '</p>' +
+          '<p class="card__meta card__likes">♥ ' + (Number(w.likes) || 0) + ' likes</p>' +
           '<ul class="tags">' + w.tags.map(function (t) {
             return '<li class="tag">#' + esc(t) + '</li>';
           }).join('') + '</ul>' +
@@ -71,7 +98,7 @@ import { isConfigured } from './firebase.js';
           '<h3 class="thread__title">' + esc(t.title) + '</h3>' +
           '<p class="thread__meta">' + esc(t.category) + ' · ' + esc(t.author) + ' · ' + esc(t.createdAt) + '</p>' +
         '</span>' +
-        '<span class="thread__stats"><b>' + (t.replyCount || 0) + '</b>' + (t.replyCount === 1 ? 'reply' : 'replies') + '</span>' +
+          '<span class="thread__stats"><b>' + (t.replyCount || 0) + '</b>' + (t.replyCount === 1 ? 'reply' : 'replies') + '<small>♥ ' + (Number(t.likes) || 0) + '</small></span>' +
       '</a>';
   }
 
@@ -86,11 +113,16 @@ import { isConfigured } from './firebase.js';
           '</div>' +
         '</div>' +
         '<p class="card__meta account__bio">' + esc(u.bio || '') + '</p>' +
+        (u.community ? '<ul class="tags account__stats">' + levelTag(u.community) + '<li class="tag">' + u.community.posts + ' posts</li><li class="tag">' + u.community.likes + ' likes</li></ul>' : '') +
       '</a>';
   }
 
   function emptyState(message) {
     return '<p class="empty">' + esc(message) + '</p>';
+  }
+
+  function saveTrophyState() {
+    try { localStorage.setItem('gta6.trophies.v1', JSON.stringify(trophyState)); } catch (e) { /* storage blocked */ }
   }
 
   function errorState(err) {
@@ -116,7 +148,7 @@ import { isConfigured } from './firebase.js';
 
   var Data = {};
   ['listUsers', 'getProfile', 'listWalkthroughs', 'getWalkthrough', 'listThreads',
-    'getThread', 'createThread', 'addReply', 'categories'].forEach(function (method) {
+    'getThread', 'createThread', 'likeThread', 'likeWalkthrough', 'addReply', 'categories', 'listTrophies', 'listContent'].forEach(function (method) {
     Data[method] = function () {
       return DB[method].apply(DB, arguments).catch(function (err) {
         console.error('[db] ' + method + ' failed:', err);
@@ -156,8 +188,12 @@ import { isConfigured } from './firebase.js';
             '<ul class="tags">' + w.tags.map(function (t) {
               return '<li class="tag">#' + esc(t) + '</li>';
             }).join('') + '</ul>' +
+            '<button class="btn btn--ghost like-button" data-like-guide="' + esc(w.id) + '" type="button">♥ Like (' + (Number(w.likes) || 0) + ')</button>' +
           '</aside>' +
         '</div>');
+      document.querySelector('[data-like-guide]').addEventListener('click', function () {
+        Data.likeWalkthrough(w.id).then(function () { walkthroughDetail(w.id); });
+      });
     });
   }
 
@@ -166,10 +202,10 @@ import { isConfigured } from './firebase.js';
       Promise.all([Data.listWalkthroughs({}), Data.listThreads(), Data.listUsers({})]).then(function (res) {
         var guides = res[0].slice(0, 3);
         var threads = res[1].slice(0, 3);
-        var members = res[2].slice(0, 4);
+        var members = decorateUsers(res[2], res[0], res[1]).slice(0, 4);
         render('' +
           '<section class="hero">' +
-            '<h1>Every GTA6 walkthrough, in one place.</h1>' +
+            '<h1>Every GTA6 guide, in one place.</h1>' +
             '<p>Step-by-step guides written and reviewed by the community, plus a forum to ask what the guides do not cover.</p>' +
             '<div class="toolbar">' +
               '<a class="btn btn--primary" href="#/walkthroughs">Browse walkthroughs</a>' +
@@ -240,6 +276,74 @@ import { isConfigured } from './firebase.js';
       update();
     },
 
+    '/trophies': function () {
+      Data.listTrophies().then(function (trophies) {
+        var categories = ['all'].concat(trophies.reduce(function (list, trophy) {
+          if (list.indexOf(trophy.category) === -1) list.push(trophy.category);
+          return list;
+        }, []));
+        var activeCategory = state.trophyCategory || 'all';
+
+        function update() {
+          var visible = trophies.filter(function (trophy) {
+            return activeCategory === 'all' || trophy.category === activeCategory;
+          });
+          var completed = trophies.filter(function (trophy) { return trophyState[trophy.id]; }).length;
+          var total = trophies.length;
+          document.getElementById('trophyProgress').textContent = completed + ' of ' + total + ' complete';
+          document.getElementById('trophyBar').style.width = (total ? completed / total * 100 : 0) + '%';
+          document.getElementById('trophyResults').innerHTML = visible.map(function (trophy) {
+            return '<label class="trophy' + (trophyState[trophy.id] ? ' is-complete' : '') + '">' +
+              '<input type="checkbox" data-trophy-id="' + esc(trophy.id) + '"' + (trophyState[trophy.id] ? ' checked' : '') + ' />' +
+              '<span class="trophy__icon" aria-hidden="true">' + (trophy.tier === 'Gold' ? '★' : trophy.tier === 'Silver' ? '◆' : '●') + '</span>' +
+              '<span class="trophy__body"><strong>' + esc(trophy.title) + '</strong><span>' + esc(trophy.description) + '</span></span>' +
+              '<span class="trophy__tier">' + esc(trophy.tier) + '</span>' +
+            '</label>';
+          }).join('') || emptyState('No achievements in this category.');
+        }
+
+        render('' +
+          '<section class="trophy-hero">' +
+            '<div><p class="eyebrow">Progress tracker</p><h2>Achievement tracker</h2><p>Keep track of every challenge, collectible and story milestone.</p></div>' +
+            '<div class="trophy-summary"><strong id="trophyProgress">0 of ' + trophies.length + ' complete</strong><div class="progress"><span id="trophyBar"></span></div></div>' +
+          '</section>' +
+          '<div class="toolbar" id="trophyFilters">' + categories.map(function (category) {
+            return '<button class="chip' + (activeCategory === category ? ' is-active' : '') + '" data-trophy-category="' + esc(category) + '">' + esc(category === 'all' ? 'All achievements' : category) + '</button>';
+          }).join('') + '</div>' +
+          '<div class="trophy-list" id="trophyResults" aria-live="polite"></div>');
+
+        document.getElementById('trophyFilters').addEventListener('click', function (event) {
+          var button = event.target.closest('[data-trophy-category]');
+          if (!button) return;
+          activeCategory = button.dataset.trophyCategory;
+          state.trophyCategory = activeCategory;
+          document.querySelectorAll('[data-trophy-category]').forEach(function (item) {
+            item.classList.toggle('is-active', item === button);
+          });
+          update();
+        });
+        document.getElementById('trophyResults').addEventListener('change', function (event) {
+          var checkbox = event.target.closest('[data-trophy-id]');
+          if (!checkbox) return;
+          trophyState[checkbox.dataset.trophyId] = checkbox.checked;
+          saveTrophyState();
+          update();
+        });
+        update();
+      });
+    },
+
+    '/news': function () {
+      Data.listContent().then(function (sections) {
+        render('<section class="content-hero"><p class="eyebrow">Companion intelligence</p><h2>News &amp; Intel</h2><p>Official details, character files, locations, achievement guidance and clearly marked community speculation.</p></section>' +
+          '<div class="content-sections">' + sections.map(function (section) {
+            return '<section class="content-section" id="' + esc(section.id) + '"><div class="section-head"><div><p class="eyebrow">' + esc(section.label) + '</p><h2>' + esc(section.title) + '</h2></div></div><div class="content-grid">' + section.items.map(function (item) {
+              return '<article class="content-card"><h3>' + esc(item.title) + '</h3><p>' + esc(item.body) + '</p><small>' + esc(item.meta) + '</small></article>';
+            }).join('') + '</div></section>';
+          }).join('') + '</div>');
+      });
+    },
+
     '/accounts': function () {
       render('' +
         '<div class="section-head"><h2>Accounts</h2><span class="card__meta" id="accountCount"></span></div>' +
@@ -257,7 +361,8 @@ import { isConfigured } from './firebase.js';
       input.value = state.accountQuery;
 
       function update() {
-        Data.listUsers({ query: state.accountQuery }).then(function (users) {
+        Promise.all([Data.listUsers({ query: state.accountQuery }), Data.listWalkthroughs({}), Data.listThreads()]).then(function (res) {
+          var users = decorateUsers(res[0], res[1], res[2]);
           count.textContent = users.length + (users.length === 1 ? ' account' : ' accounts');
           results.innerHTML = users.length
             ? '<div class="grid">' + users.map(accountCard).join('') + '</div>'
@@ -287,6 +392,7 @@ import { isConfigured } from './firebase.js';
         if (!u) return render(emptyState('That account could not be found.'));
         var guides = res[1].filter(function (w) { return w.author === u.username; });
         var threads = res[2].filter(function (t) { return t.author === u.username; });
+        var community = communityStats(u.username, res[1], res[2]);
 
         render('' +
           '<a class="btn btn--ghost" href="#/accounts">← Back to accounts</a>' +
@@ -297,10 +403,12 @@ import { isConfigured } from './firebase.js';
               '<p class="card__meta">@' + esc(u.username) + ' · ' + esc(u.role || 'Member') + '</p>' +
               '<p>' + esc(u.bio || '') + '</p>' +
               '<ul class="tags">' +
+                levelTag(community) +
                 '<li class="tag">Joined ' + esc(u.joinedAt) + '</li>' +
                 (u.location ? '<li class="tag">' + esc(u.location) + '</li>' : '') +
                 '<li class="tag">' + guides.length + ' guides</li>' +
                 '<li class="tag">' + threads.length + ' threads</li>' +
+                '<li class="tag">' + community.likes + ' likes</li>' +
               '</ul>' +
             '</div>' +
           '</section>' +
@@ -341,7 +449,7 @@ import { isConfigured } from './firebase.js';
           '<div class="section-head"><h2>' + esc(t.title) + '</h2></div>' +
           '<div class="post">' +
             '<span class="avatar" aria-hidden="true">' + initials(t.author) + '</span>' +
-            '<div><p class="thread__meta">' + esc(t.author) + ' · ' + esc(t.createdAt) + '</p><p>' + esc(t.body) + '</p></div>' +
+            '<div><p class="thread__meta">' + esc(t.author) + ' · ' + esc(t.createdAt) + '</p><p>' + esc(t.body) + '</p><button class="btn btn--ghost like-button" data-like-thread="' + esc(t.id) + '" type="button">♥ Like (' + (Number(t.likes) || 0) + ')</button></div>' +
           '</div>' +
           t.replies.map(function (r) {
             return '<div class="post">' +
@@ -354,6 +462,10 @@ import { isConfigured } from './firebase.js';
             '<textarea id="replyBody" required maxlength="2000"></textarea></div>' +
             '<div><button class="btn btn--primary" type="submit">Post reply</button></div>' +
           '</form>');
+
+        document.querySelector('[data-like-thread]').addEventListener('click', function () {
+          Data.likeThread(t.id).then(function () { views['/thread'](t.id); });
+        });
 
         document.getElementById('replyForm').addEventListener('submit', function (e) {
           e.preventDefault();
@@ -395,7 +507,7 @@ import { isConfigured } from './firebase.js';
       render('' +
         '<div class="section-head"><h2>About</h2></div>' +
         '<div class="sidecard" style="max-width:640px">' +
-          '<p>GTA6 Walkthrough is a community library of game guides backed by a database of walkthroughs, steps and forum threads.</p>' +
+          '<p>Companion for GTA6 is a community library of game guides backed by a database of walkthroughs, steps and forum threads.</p>' +
           '<p class="card__meta">Backend: ' + (isConfigured ? 'Cloud Firestore' : 'local browser storage — add your project keys in js/firebase-config.js to go live') + '.</p>' +
         '</div>');
     }

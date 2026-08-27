@@ -41,7 +41,7 @@ export const SEED = {
     {
       id: 'admin',
       username: 'admin',
-      displayName: 'GTA6 Walkthrough Staff',
+      displayName: 'Companion for GTA6 Staff',
       bio: 'Official account. Announcements and rule changes.',
       role: 'Admin',
       joinedAt: '2025-08-01',
@@ -56,6 +56,7 @@ export const SEED = {
       difficulty: 'easy',
       duration: 25,
       author: 'nova',
+      likes: 12,
       updatedAt: '2026-08-12',
       cover: '🚗',
       summary: 'Complete the opening heist and escape the county line without losing wanted stars.',
@@ -74,6 +75,7 @@ export const SEED = {
       difficulty: 'medium',
       duration: 180,
       author: 'mapmaker',
+      likes: 26,
       updatedAt: '2026-08-20',
       cover: '🗺️',
       summary: 'Region-by-region route for every hidden collectible with the fastest travel order.',
@@ -92,6 +94,7 @@ export const SEED = {
       difficulty: 'hard',
       duration: 45,
       author: 'sable',
+      likes: 19,
       updatedAt: '2026-08-25',
       cover: '🎯',
       summary: 'Loadout, cover positions and timing windows for the final confrontation.',
@@ -110,6 +113,7 @@ export const SEED = {
       difficulty: 'easy',
       duration: 60,
       author: 'nova',
+      likes: 9,
       updatedAt: '2026-08-18',
       cover: '💰',
       summary: 'Repeatable early-game income loop that requires no upfront investment.',
@@ -127,6 +131,7 @@ export const SEED = {
       title: 'Best settings for 60fps on mid-range hardware?',
       category: 'Tech',
       author: 'pixelpush',
+      likes: 8,
       createdAt: '2026-08-24',
       body: 'Shadows and volumetric fog seem to be the biggest cost. What are you all running?',
       replies: [
@@ -139,6 +144,7 @@ export const SEED = {
       title: 'Missable trophies list — help me verify',
       category: 'Guides',
       author: 'mapmaker',
+      likes: 14,
       createdAt: '2026-08-21',
       body: 'I have found four so far. Adding them to the collectibles walkthrough once confirmed.',
       replies: [
@@ -150,6 +156,7 @@ export const SEED = {
       title: 'Introduce yourself here',
       category: 'General',
       author: 'admin',
+      likes: 3,
       createdAt: '2026-08-01',
       body: 'New here? Say hello and tell us what you are playing.',
       replies: []
@@ -158,3 +165,18 @@ export const SEED = {
 };
 
 export const CATEGORIES = ['General', 'Guides', 'Tech', 'Off-topic'];
+
+export const TROPHIES = [
+  { id: 't-01', title: 'Welcome to Vice City', description: 'Complete the opening mission.', category: 'Story', tier: 'Bronze' },
+  { id: 't-02', title: 'No Loose Ends', description: 'Complete the main story.', category: 'Story', tier: 'Gold' },
+  { id: 't-03', title: 'Smooth Operator', description: 'Complete a mission without raising your wanted level.', category: 'Story', tier: 'Bronze' },
+  { id: 't-04', title: 'Sunset Boulevard', description: 'Visit every major district in the city.', category: 'Exploration', tier: 'Silver' },
+  { id: 't-05', title: 'Off the Grid', description: 'Discover 25 hidden locations.', category: 'Exploration', tier: 'Silver' },
+  { id: 't-06', title: 'Four Wheels', description: 'Collect 10 unique vehicles.', category: 'Exploration', tier: 'Bronze' },
+  { id: 't-07', title: 'Big Score', description: 'Earn $1,000,000 from side activities.', category: 'Side Activities', tier: 'Gold' },
+  { id: 't-08', title: 'Night Shift', description: 'Finish a full night of taxi work.', category: 'Side Activities', tier: 'Bronze' },
+  { id: 't-09', title: 'Local Legend', description: 'Reach maximum reputation with one crew.', category: 'Side Activities', tier: 'Silver' },
+  { id: 't-10', title: 'Sharp Eye', description: 'Find 10 hidden photo spots.', category: 'Collectibles', tier: 'Bronze' },
+  { id: 't-11', title: 'Full Deck', description: 'Collect every special playing card.', category: 'Collectibles', tier: 'Silver' },
+  { id: 't-12', title: 'Treasure Hunter', description: 'Complete a full treasure map.', category: 'Collectibles', tier: 'Bronze' }
+];
