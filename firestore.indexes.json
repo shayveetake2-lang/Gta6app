@@ -1,13 +1,6 @@
 {
   "indexes": [
     {
-      "collectionGroup": "users",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "usernameLower", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "threads",
       "queryScope": "COLLECTION",
       "fields": [
