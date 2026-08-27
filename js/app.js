@@ -94,10 +94,16 @@ import { isConfigured } from './firebase.js';
   }
 
   function errorState(err) {
-    var needsIndex = /requires an index/i.test(err.message || '');
-    return '<p class="empty"><b>Could not load from the database.</b><br>' +
-      esc(needsIndex ? 'A Firestore index is still building or has not been deployed. Run: npx firebase deploy --only firestore:indexes' : err.message) +
-      '</p>';
+    var message = err.message || '';
+    var hint = message;
+    if (/currently building/i.test(message)) {
+      hint = 'A Firestore index is still building. This usually takes a few minutes — try again shortly.';
+    } else if (/requires an index/i.test(message)) {
+      hint = 'A Firestore index has not been deployed. Run: npx firebase deploy --only firestore:indexes';
+    } else if (/permission|insufficient/i.test(message)) {
+      hint = 'The security rules rejected this request.';
+    }
+    return '<p class="empty"><b>Could not load from the database.</b><br>' + esc(hint) + '</p>';
   }
 
   // Renders a failure instead of leaving a blank section, and stops the chain.
