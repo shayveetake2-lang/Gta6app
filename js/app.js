@@ -1,4 +1,4 @@
-import { DB, dbReady } from './data.js';
+import { DB, dbReady } from './data.js?v=20260827-manual';
 import { isConfigured } from './firebase.js';
 
 (function () {
@@ -8,6 +8,7 @@ import { isConfigured } from './firebase.js';
   var navToggle = document.getElementById('navToggle');
   var nav = document.getElementById('primaryNav');
   var scrim = document.getElementById('scrim');
+  var backButton = document.getElementById('backButton');
   var themeToggle = document.getElementById('themeToggle');
   var searchForm = document.getElementById('globalSearch');
   var searchInput = document.getElementById('globalSearchInput');
@@ -16,6 +17,7 @@ import { isConfigured } from './firebase.js';
   var state = { difficulty: 'all', query: '', category: 'all', accountQuery: '' };
   var trophyState = {};
   try { trophyState = JSON.parse(localStorage.getItem('gta6.trophies.v1') || '{}'); } catch (e) { /* storage blocked */ }
+  var routeHistory = [];
 
   // Each debounced handler needs its own timer, or the search inputs cancel each other.
   function debounce(fn, wait) {
@@ -126,6 +128,15 @@ import { isConfigured } from './firebase.js';
       '</article>';
   }
 
+  function manualAchievementRow(item) {
+    return '<article class="achievement-row">' +
+      '<span class="achievement-row__icon achievement-row__icon--empty" aria-hidden="true">★</span>' +
+      '<div class="achievement-row__body"><h3>' + esc(item.achievementName) + '</h3><p class="card__meta">' + esc(item.gameTitle) + (item.description ? ' · ' + esc(item.description) : '') + '</p></div>' +
+      '<button class="btn ' + (item.unlocked ? 'btn--ghost' : 'btn--primary') + '" type="button" data-manual-achievement="' + esc(item.id) + '" data-unlocked="' + (!item.unlocked) + '">' +
+        (item.unlocked ? 'Mark incomplete' : 'Mark complete') + '</button>' +
+      '</article>';
+  }
+
   function emptyState(message) {
     return '<p class="empty">' + esc(message) + '</p>';
   }
@@ -229,7 +240,15 @@ import { isConfigured } from './firebase.js';
           '<div class="field field--grow"><label for="achievementGame">Game ID</label><input id="achievementGame" required placeholder="Steam app ID or platform title ID" /></div>' +
           '<button class="btn btn--primary" type="submit">Load achievements</button>' +
         '</form>' +
-        '<div id="achievementResults" aria-live="polite">' + emptyState('Enter an account and game ID to load achievements.') + '</div>');
+        '<div id="achievementResults" aria-live="polite">' + emptyState('Enter an account and game ID to load achievements.') + '</div>' +
+        '<div class="section-head"><h3>Manual achievements</h3></div>' +
+        '<form class="stack" id="manualAchievementForm" style="max-width:640px">' +
+          '<div class="field"><label for="manualGameTitle">Game</label><input id="manualGameTitle" required maxlength="120" /></div>' +
+          '<div class="field"><label for="manualAchievementName">Achievement</label><input id="manualAchievementName" required maxlength="120" /></div>' +
+          '<div class="field"><label for="manualAchievementDescription">Notes</label><textarea id="manualAchievementDescription" maxlength="500"></textarea></div>' +
+          '<div class="toolbar"><button class="btn btn--primary" type="submit">Add achievement</button></div>' +
+        '</form>' +
+        '<div id="manualAchievementResults" aria-live="polite">' + emptyState('Loading manual achievements…') + '</div>');
 
       var form = document.getElementById('achievementForm');
       var platform = document.getElementById('achievementPlatform');
@@ -253,6 +272,44 @@ import { isConfigured } from './firebase.js';
           results.innerHTML = errorState(error) + '<p class="card__meta achievement-help">Start the API with <code>npm run api</code>, then configure the platform values in <code>.env</code>.</p>';
         });
       });
+
+      var manualForm = document.getElementById('manualAchievementForm');
+      var manualResults = document.getElementById('manualAchievementResults');
+      function loadManualAchievements() {
+        DB.listManualAchievements().then(function (items) {
+          manualResults.innerHTML = items.length
+            ? '<div class="achievement-list">' + items.map(manualAchievementRow).join('') + '</div>'
+            : emptyState('No manual achievements added yet.');
+        }).catch(function (error) {
+          manualResults.innerHTML = errorState(error);
+        });
+      }
+      manualForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var submit = manualForm.querySelector('button[type="submit"]');
+        submit.disabled = true;
+        DB.createManualAchievement({
+          gameTitle: document.getElementById('manualGameTitle').value.trim(),
+          achievementName: document.getElementById('manualAchievementName').value.trim(),
+          description: document.getElementById('manualAchievementDescription').value.trim()
+        }).then(function () {
+          manualForm.reset();
+          loadManualAchievements();
+        }).catch(function (error) {
+          manualResults.innerHTML = errorState(error);
+        }).finally(function () {
+          submit.disabled = false;
+        });
+      });
+      manualResults.addEventListener('click', function (event) {
+        var button = event.target.closest('[data-manual-achievement]');
+        if (!button) return;
+        button.disabled = true;
+        DB.setManualAchievementCompleted(button.dataset.manualAchievement, button.dataset.unlocked === 'true')
+          .then(loadManualAchievements)
+          .catch(function (error) { manualResults.innerHTML = errorState(error); });
+      });
+      loadManualAchievements();
     },
     '/': function () {
       Promise.all([Data.listWalkthroughs({}), Data.listThreads(), Data.listUsers({})]).then(function (res) {
@@ -402,7 +459,7 @@ import { isConfigured } from './firebase.js';
 
     '/accounts': function () {
       render('' +
-        '<div class="section-head"><h2>Accounts</h2><span class="card__meta" id="accountCount"></span></div>' +
+        '<div class="section-head"><h2>Accounts</h2><a href="#/create-account">Create account</a><span class="card__meta" id="accountCount"></span></div>' +
         '<form class="toolbar" id="accountSearchForm" role="search">' +
           '<div class="field field--grow">' +
             '<label class="sr-only" for="accountSearch">Search accounts</label>' +
@@ -439,6 +496,44 @@ import { isConfigured } from './firebase.js';
       };
       update();
       if (state.accountQuery) input.focus();
+    },
+
+    '/create-account': function () {
+      render('' +
+        '<div class="section-head"><h2>Create account</h2></div>' +
+        '<form class="stack" id="accountForm" style="max-width:640px">' +
+          '<div class="field"><label for="accountUsername">Username</label>' +
+          '<input id="accountUsername" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+" autocomplete="username" /></div>' +
+          '<div class="field"><label for="accountDisplayName">Display name</label>' +
+          '<input id="accountDisplayName" required maxlength="60" autocomplete="nickname" /></div>' +
+          '<div class="field"><label for="accountLocation">Location</label>' +
+          '<input id="accountLocation" maxlength="80" autocomplete="address-level2" /></div>' +
+          '<div class="field"><label for="accountBio">Bio</label>' +
+          '<textarea id="accountBio" maxlength="400"></textarea></div>' +
+          '<p class="card__meta" id="accountFormStatus" aria-live="polite"></p>' +
+          '<div class="toolbar"><button class="btn btn--primary" type="submit">Create account</button>' +
+          '<a class="btn btn--ghost" href="#/accounts">Cancel</a></div>' +
+        '</form>');
+
+      document.getElementById('accountForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        var submit = event.currentTarget.querySelector('button[type="submit"]');
+        var status = document.getElementById('accountFormStatus');
+        var username = document.getElementById('accountUsername').value.trim();
+        submit.disabled = true;
+        status.textContent = 'Creating account…';
+        DB.createUser({
+          username: username,
+          displayName: document.getElementById('accountDisplayName').value.trim(),
+          location: document.getElementById('accountLocation').value.trim(),
+          bio: document.getElementById('accountBio').value.trim()
+        }).then(function (user) {
+          location.hash = '#/account/' + encodeURIComponent(user.id);
+        }).catch(function (error) {
+          submit.disabled = false;
+          status.textContent = error.message || 'Could not create the account.';
+        });
+      });
     },
 
     '/account': function (id) {
@@ -572,7 +667,7 @@ import { isConfigured } from './firebase.js';
   /* ---------- router ---------- */
 
   function setActiveLinks(path) {
-    var map = { '/thread': '/forum', '/new-thread': '/forum', '/account': '/accounts' };
+    var map = { '/thread': '/forum', '/new-thread': '/forum', '/account': '/accounts', '/create-account': '/accounts' };
     var linkPath = map[path] || path;
     document.querySelectorAll('[data-route-link]').forEach(function (a) {
       a.classList.toggle('is-active', a.dataset.routeLink === linkPath);
@@ -582,6 +677,12 @@ import { isConfigured } from './firebase.js';
   function route() {
     var r = parseHash();
     var view = views[r.path] || views['/'];
+    var hash = location.hash || '#/';
+    if (!routeHistory.length || routeHistory[routeHistory.length - 1] !== hash) {
+      if (routeHistory.length > 1 && routeHistory[routeHistory.length - 2] === hash) routeHistory.pop();
+      else routeHistory.push(hash);
+    }
+    backButton.disabled = routeHistory.length < 2;
     setActiveLinks(views[r.path] ? r.path : '/');
     closeMenu();
     window.scrollTo(0, 0);
@@ -636,6 +737,12 @@ import { isConfigured } from './firebase.js';
     if (parseHash().path === '/accounts') refreshAccounts();
     else if (state.accountQuery.trim()) location.hash = '#/accounts';
   }));
+
+  backButton.addEventListener('click', function () {
+    if (routeHistory.length < 2) return;
+    routeHistory.pop();
+    location.hash = routeHistory[routeHistory.length - 1];
+  });
 
   document.getElementById('year').textContent = new Date().getFullYear();
   window.addEventListener('hashchange', route);

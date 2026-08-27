@@ -5,7 +5,7 @@
  * The UI only ever talks to the exported `DB` object.
  */
 import {
-  collection, doc, getDoc, getDocs, addDoc, query, where,
+  collection, doc, getDoc, getDocs, addDoc, setDoc, query, where,
   orderBy, limit, startAt, endAt, serverTimestamp, increment, updateDoc
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { ready, getDb, getUser, displayName } from './firebase.js';
@@ -55,6 +55,11 @@ function saveLocal() {
   } catch { /* quota or private mode: stay in memory */ }
 }
 
+function localManualAchievements() {
+  if (!Array.isArray(local.manualAchievements)) local.manualAchievements = [];
+  return local.manualAchievements;
+}
+
 const localBackend = {
   async listUsers({ query: q = '' } = {}) {
     const needle = q.trim().toLowerCase();
@@ -62,6 +67,51 @@ const localBackend = {
   },
   async getProfile(id) {
     return clone(local.users.find((u) => u.id === id || u.username === id) || null);
+  },
+  async createUser({ username, displayName, bio, location }) {
+    const usernameLower = username.toLowerCase();
+    if (local.users.some((user) => user.usernameLower === usernameLower)) {
+      throw new Error('That username is already in use.');
+    }
+    const user = {
+      id: uid('user'),
+      username,
+      usernameLower,
+      displayName,
+      bio: bio || '',
+      location: location || '',
+      role: 'Member',
+      joinedAt: today()
+    };
+    local.users.unshift(user);
+    saveLocal();
+    return clone(user);
+  },
+  async listManualAchievements() {
+    return clone(localManualAchievements().slice().sort((first, second) => second.createdAt.localeCompare(first.createdAt)));
+  },
+  async createManualAchievement({ gameTitle, achievementName, description }) {
+    const achievement = {
+      id: uid('achievement'),
+      platform: 'manual',
+      gameTitle,
+      achievementName,
+      description: description || '',
+      unlocked: false,
+      completedAt: null,
+      createdAt: today()
+    };
+    localManualAchievements().unshift(achievement);
+    saveLocal();
+    return clone(achievement);
+  },
+  async setManualAchievementCompleted(id, unlocked) {
+    const achievement = localManualAchievements().find((item) => item.id === id);
+    if (!achievement) throw new Error('Achievement not found.');
+    achievement.unlocked = unlocked;
+    achievement.completedAt = unlocked ? today() : null;
+    saveLocal();
+    return clone(achievement);
   },
   async listWalkthroughs({ difficulty = 'all', query: q = '' } = {}) {
     const needle = q.trim().toLowerCase();
@@ -145,6 +195,61 @@ function firestoreBackend(db) {
       const snap = await getDoc(doc(db, 'users', id));
       if (!snap.exists()) return null;
       return { id: snap.id, ...snap.data(), joinedAt: toDateString(snap.data().joinedAt) };
+    },
+
+    async createUser({ username, displayName, bio, location }) {
+      const user = getUser();
+      if (!user) throw new Error('Sign in is not ready. Please try again.');
+      const profileRef = doc(db, 'users', user.uid);
+      const existing = await getDoc(profileRef);
+      if (existing.exists()) throw new Error('This browser already has a profile.');
+      await setDoc(profileRef, {
+        username,
+        usernameLower: username.toLowerCase(),
+        displayName,
+        bio: bio || '',
+        location: location || '',
+        role: 'Member',
+        joinedAt: serverTimestamp()
+      });
+      return { id: user.uid, username, displayName, bio: bio || '', location: location || '', role: 'Member', joinedAt: today() };
+    },
+
+    async listManualAchievements() {
+      const user = getUser();
+      if (!user) throw new Error('Sign in is not ready. Please try again.');
+      const achievementsRef = collection(db, 'users', user.uid, 'manualAchievements');
+      const snap = await getDocs(query(achievementsRef, orderBy('createdAt', 'desc'), limit(100)));
+      return snap.docs.map((item) => ({
+        id: item.id,
+        ...item.data(),
+        createdAt: toDateString(item.data().createdAt),
+        completedAt: item.data().completedAt ? toDateString(item.data().completedAt) : null
+      }));
+    },
+
+    async createManualAchievement({ gameTitle, achievementName, description }) {
+      const user = getUser();
+      if (!user) throw new Error('Sign in is not ready. Please try again.');
+      const achievement = {
+        platform: 'manual',
+        gameTitle,
+        achievementName,
+        description: description || '',
+        unlocked: false,
+        completedAt: null,
+        createdAt: serverTimestamp()
+      };
+      const ref = await addDoc(collection(db, 'users', user.uid, 'manualAchievements'), achievement);
+      return { id: ref.id, ...achievement, createdAt: today() };
+    },
+
+    async setManualAchievementCompleted(id, unlocked) {
+      const user = getUser();
+      if (!user) throw new Error('Sign in is not ready. Please try again.');
+      const ref = doc(db, 'users', user.uid, 'manualAchievements', id);
+      await updateDoc(ref, { unlocked, completedAt: unlocked ? serverTimestamp() : null });
+      return { id, unlocked, completedAt: unlocked ? today() : null };
     },
 
     async listWalkthroughs({ difficulty = 'all', query: q = '' } = {}) {
@@ -247,6 +352,10 @@ export const dbReady = (async () => {
 export const DB = {
   listUsers: (opts) => backend.listUsers(opts),
   getProfile: (id) => backend.getProfile(id),
+  createUser: (input) => backend.createUser(input),
+  listManualAchievements: () => backend.listManualAchievements(),
+  createManualAchievement: (input) => backend.createManualAchievement(input),
+  setManualAchievementCompleted: (id, unlocked) => backend.setManualAchievementCompleted(id, unlocked),
   listWalkthroughs: (opts) => backend.listWalkthroughs(opts),
   getWalkthrough: (id) => backend.getWalkthrough(id),
   listThreads: (category) => backend.listThreads(category),
