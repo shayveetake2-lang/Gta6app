@@ -5,6 +5,10 @@
       "firebase.json",
       "firestore.rules",
       "firestore.indexes.json",
+      "package*.json",
+      "api/**",
+      "scripts/**",
+      "README.md",
       "**/.*",
       "**/node_modules/**"
     ],

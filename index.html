@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#101a2b" />
   <meta name="description" content="Companion for GTA6 — game walkthroughs, guides and community forum." />
   <title>Companion for GTA6</title>
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/styles.css?v=20260827-polish2" />
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -22,23 +22,33 @@
 
       <nav class="nav" id="primaryNav" aria-label="Primary">
         <ul class="nav__list">
-          <li><a class="nav__link" href="#/" data-route-link="/">Home</a></li>
-          <li><a class="nav__link" href="#/walkthroughs" data-route-link="/walkthroughs">Walkthroughs</a></li>
-          <li><a class="nav__link" href="#/news" data-route-link="/news">News &amp; Intel</a></li>
-          <li><a class="nav__link" href="#/achievements" data-route-link="/achievements">Achievements</a></li>
-          <li><a class="nav__link" href="#/forum" data-route-link="/forum">Forum</a></li>
-          <li><a class="nav__link" href="#/accounts" data-route-link="/accounts">Accounts</a></li>
-          <li><a class="nav__link" href="#/about" data-route-link="/about">About</a></li>
+          <li class="nav__item"><a class="nav__link" href="#/" data-route-link="/">Home</a></li>
+          <li class="nav__item"><a class="nav__link" href="#/walkthroughs" data-route-link="/walkthroughs">Walkthroughs</a></li>
+          <li class="nav__item"><a class="nav__link" href="#/news" data-route-link="/news">News &amp; Intel</a></li>
+          <li class="nav__item nav__item--has-menu">
+            <a class="nav__link" href="#/achievements" data-route-link="/achievements">Achievements</a>
+            <button class="nav__caret" id="achievementMenuToggle" type="button" aria-expanded="false" aria-haspopup="menu" aria-controls="achievementMenu" aria-label="Open achievement destinations">
+              <span aria-hidden="true">⌄</span>
+            </button>
+            <div class="nav__submenu" id="achievementMenu" role="menu" aria-label="Achievement destinations">
+              <a class="nav__submenu-link" href="#/trophies" data-route-link="/trophies" role="menuitem">GTA VI checklist</a>
+              <a class="nav__submenu-link" href="#/achievements" data-route-link="/achievements" role="menuitem">Platform import</a>
+            </div>
+          </li>
+          <li class="nav__item"><a class="nav__link" href="#/forum" data-route-link="/forum">Forum</a></li>
+          <li class="nav__item"><a class="nav__link" href="#/accounts" data-route-link="/accounts">Accounts</a></li>
+          <li class="nav__item"><a class="nav__link" href="#/about" data-route-link="/about">About</a></li>
         </ul>
       </nav>
 
       <form class="search" role="search" id="globalSearch">
+        <label class="sr-only" for="globalSearchInput">Search accounts</label>
         <input type="search" id="globalSearchInput" placeholder="Search accounts…" aria-label="Search accounts" autocomplete="off" />
       </form>
 
-      <button class="icon-btn" id="themeToggle" aria-label="Toggle color theme" title="Toggle theme">◐</button>
+      <button class="icon-btn" id="themeToggle" type="button" aria-label="Toggle color theme" title="Toggle theme">◐</button>
 
-      <button class="icon-btn nav-toggle" id="navToggle" aria-expanded="false" aria-controls="primaryNav" aria-label="Open menu">
+      <button class="icon-btn nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="primaryNav" aria-label="Open menu">
         <span class="burger" aria-hidden="true"></span>
       </button>
     </div>
@@ -52,12 +62,11 @@
     <a href="#/" data-route-link="/"><span aria-hidden="true">⌂</span>Home</a>
     <a href="#/walkthroughs" data-route-link="/walkthroughs"><span aria-hidden="true">▤</span>Guides</a>
     <a href="#/news" data-route-link="/news"><span aria-hidden="true">▣</span>News</a>
-    <a href="#/achievements" data-route-link="/achievements"><span aria-hidden="true">★</span>Achievements</a>
+    <a href="#/trophies" data-route-link="/trophies"><span aria-hidden="true">★</span>Track</a>
     <a href="#/forum" data-route-link="/forum"><span aria-hidden="true">💬</span>Forum</a>
-    <a href="#/accounts" data-route-link="/accounts"><span aria-hidden="true">👤</span>Accounts</a>
   </nav>
 
-  <footer class="footer">
+  <footer class="footer" id="siteFooter">
     <div class="container footer__inner">
       <p>© <span id="year"></span> Companion for GTA6 — community-built guides.</p>
       <ul class="footer__links">
@@ -67,6 +76,6 @@
     </div>
   </footer>
 
-  <script type="module" src="js/app.js?v=20260827-manual"></script>
+  <script type="module" src="js/app.js?v=20260827-polish3"></script>
 </body>
 </html>

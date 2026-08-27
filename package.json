@@ -6,6 +6,7 @@
     "start": "python3 -m http.server 5173",
     "api": "node api/server.mjs",
     "seed": "node scripts/seed.mjs",
+    "check": "node --check api/server.mjs && node --check scripts/seed.mjs && node --check js/app.js && node --check js/content.js && node --check js/data.js && node --check js/firebase-config.js && node --check js/firebase.js && node --check js/seed.js",
     "deploy": "firebase deploy --only firestore:rules,firestore:indexes,hosting",
     "emulate": "firebase emulators:start"
   },

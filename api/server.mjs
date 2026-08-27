@@ -6,11 +6,14 @@ import rateLimit from 'express-rate-limit';
 
 const app = express();
 const port = Number(process.env.API_PORT || 8787);
+const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+const trustProxy = process.env.TRUST_PROXY === 'true';
 const cache = new Map();
 const cacheTtlMs = Number(process.env.ACHIEVEMENT_CACHE_TTL_MS || 300000);
 
+app.set('trust proxy', trustProxy ? 1 : false);
 app.use(helmet());
-app.use(cors({ origin: process.env.CLIENT_ORIGIN || true }));
+app.use(cors({ origin: clientOrigin }));
 app.use(express.json({ limit: '32kb' }));
 app.use(rateLimit({ windowMs: 60000, limit: 60, standardHeaders: 'draft-7', legacyHeaders: false }));
 
