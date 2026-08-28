@@ -1,0 +1,14 @@
+node_modules/
+.git/
+.wrangler/
+api/
+scripts/
+README.md
+firebase.json
+firestore.indexes.json
+firestore.rules
+package.json
+package-lock.json
+wrangler.jsonc
+firebase-debug.log
+.DS_Store
