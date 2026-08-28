@@ -11,7 +11,7 @@ import { isConfigured } from './firebase.js';
   var themeToggle = document.getElementById('themeToggle');
   var searchForm = document.getElementById('globalSearch');
   var searchInput = document.getElementById('globalSearchInput');
-  var achievementApi = window.ACHIEVEMENT_API_URL || 'http://localhost:8787';
+  var achievementApi = window.ACHIEVEMENT_API_URL || '';
 
   var state = { difficulty: 'all', query: '', category: 'all', accountQuery: '' };
 
@@ -135,6 +135,7 @@ import { isConfigured } from './firebase.js';
     };
   });
   Data.fetchAchievements = function (platform, params) {
+    if (!achievementApi) return Promise.reject(new Error('Achievement API is not configured. Set window.ACHIEVEMENT_API_URL in index.html.'));
     var query = new URLSearchParams(params).toString();
     return fetch(achievementApi + '/api/achievements/' + encodeURIComponent(platform) + '?' + query)
       .then(function (response) {
