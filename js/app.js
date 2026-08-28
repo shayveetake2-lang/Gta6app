@@ -14,7 +14,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
   var achievementApi = window.ACHIEVEMENT_API_URL || '';
 
   var authArea = document.getElementById('authArea');
-  var state = { difficulty: 'all', query: '', category: 'all', accountQuery: '', siteQuery: '', newsCategory: 'all', newsQuery: '' };
+  var state = { difficulty: 'all', game: 'all', query: '', category: 'all', accountQuery: '', siteQuery: '', newsCategory: 'all', newsQuery: '' };
 
   /* ---------- auth bar ---------- */
 
@@ -326,11 +326,12 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
       });
     },
     '/': function () {
-      Promise.all([Data.listNews({}), Data.listWalkthroughs({}), Data.listThreads(), Data.listUsers({})]).then(function (res) {
+      Promise.all([Data.listNews({}), Data.listWalkthroughs({}), Data.listThreads(), Data.listUsers({}), Data.listContent()]).then(function (res) {
         var news = res[0].slice(0, 3);
         var guides = res[1].slice(0, 3);
         var threads = res[2].slice(0, 3);
         var members = res[3].slice(0, 4);
+        var eventSection = res[4].find(function (section) { return section.id === 'gta-online-weekly'; });
         render('' +
           '<section class="hero">' +
             '<h1>Every GTA6 walkthrough, in one place.</h1>' +
@@ -347,6 +348,8 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
           '<div class="section-head"><h2>Latest guides</h2><a href="#/walkthroughs">View all</a></div>' +
           (guides.length ? '<div class="grid">' + guides.map(walkthroughCard).join('') + '</div>'
             : emptyState('No guides published yet.')) +
+          (eventSection ? '<div class="section-head"><h2>' + esc(eventSection.title) + '</h2><span class="card__meta">' + esc(eventSection.label) + '</span></div>' +
+            '<div class="grid">' + eventSection.items.map(function (item) { return contentCard({ section: eventSection.title, title: item.title, body: item.body, meta: item.meta }); }).join('') + '</div>' : '') +
           '<div class="section-head"><h2>Active discussions</h2><a href="#/forum">View all</a></div>' +
           (threads.length ? '<div class="stack">' + threads.map(threadRow).join('') + '</div>'
             : emptyState('No discussions yet — start the first thread.')) +
@@ -359,7 +362,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
               '<p>GTA6 Walkthrough is the community-driven intelligence hub for Grand Theft Auto VI. Built by gamers and speedrunners to provide real-time news, verified mission guides, interactive trophy tracking, and strategy discussions.</p>' +
               '<div class="about-grid">' +
                 '<div class="about-box">' +
-                  '<h3>📰 Live GTA 6 News</h3>' +
+                  '<h3><span class="news-icon" aria-hidden="true">▥</span> Live GTA 6 News</h3>' +
                   '<p>Community and official updates covering launch dates, trailers, map leaks, protagonist analysis, and hardware performance modes.</p>' +
                 '</div>' +
                 '<div class="about-box">' +
@@ -420,6 +423,10 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
             '<input type="search" id="guideSearch" placeholder="Search guides…" autocomplete="off" />' +
           '</div>' +
         '</form>' +
+        '<div class="toolbar" id="gameFilters">' + ['all', 'GTA 6', 'GTA Online'].map(function (game) {
+          return '<button class="chip' + (state.game === game ? ' is-active' : '') + '" data-game="' + esc(game) + '">' +
+            (game === 'all' ? 'All games' : esc(game)) + '</button>';
+        }).join('') + '</div>' +
         '<div class="toolbar" id="filters">' + levels.map(function (l) {
           return '<button class="chip' + (state.difficulty === l ? ' is-active' : '') + '" data-difficulty="' + l + '">' +
             l.charAt(0).toUpperCase() + l.slice(1) + '</button>';
@@ -452,7 +459,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
       if (input) input.value = state.query;
 
       function refresh() {
-        Data.listWalkthroughs({ query: state.query, difficulty: state.difficulty }).then(function (items) {
+        Data.listWalkthroughs({ query: state.query, difficulty: state.difficulty, game: state.game }).then(function (items) {
           if (!results) return;
           count.textContent = '(' + items.length + ')';
           if (!items.length) {
@@ -476,6 +483,13 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
         if (!e.target.matches('.chip')) return;
         state.difficulty = e.target.dataset.difficulty;
         document.querySelectorAll('#filters .chip').forEach(function (c) { c.classList.toggle('is-active', c === e.target); });
+        refresh();
+      });
+
+      document.getElementById('gameFilters').addEventListener('click', function (e) {
+        if (!e.target.matches('.chip')) return;
+        state.game = e.target.dataset.game;
+        document.querySelectorAll('#gameFilters .chip').forEach(function (chip) { chip.classList.toggle('is-active', chip === e.target); });
         refresh();
       });
 

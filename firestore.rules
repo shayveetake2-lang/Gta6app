@@ -128,7 +128,7 @@ service cloud.firestore {
         && request.resource.data.body is string
         && request.resource.data.body.size() > 0
         && request.resource.data.body.size() <= 4000
-        && request.resource.data.category in ['General', 'Guides', 'Tech', 'News', 'Off-topic']
+        && request.resource.data.category in ['General', 'Guides', 'Tech', 'News', 'GTA Online', 'Off-topic']
         && request.resource.data.replyCount == 0
         && request.resource.data.createdAt == request.time;
 

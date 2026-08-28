@@ -1,5 +1,17 @@
 export const CONTENT_SECTIONS = [
   {
+    id: 'gta-online-weekly',
+    title: 'GTA Online: Drift & Transform Week',
+    label: 'Active 27 Aug - 2 Sep 2026',
+    items: [
+      { title: "This week's best bonuses", body: 'Selected Drift and Transform Races pay 6x GTA$ and RP from 28 to 30 August. Random Transform Races pay 3x GTA$ and RP, while Drift Races and Auto Shop Robbery Contracts pay 2x rewards through 2 September.', meta: 'GTA Online · expires 2026-09-02' },
+      { title: 'Weekly challenge: three Drift Races', body: 'Participate in three Drift Races to earn GTA$100,000. Winning is not required. Complete the races during the 6x window to maximise the rest of the week\'s rewards.', meta: 'Challenge · GTA$100,000' },
+      { title: 'Vehicle rewards and unlock', body: 'The Karin Sultan Classic is the Podium Vehicle and the Dinka Veto Classic is the LS Car Meet Prize Ride. Complete a Drift Race in an Ubermacht Cypher to unlock the Glitch Camo Drift Livery; delivery can take up to 72 hours.', meta: 'Vehicles · event rewards' },
+      { title: 'Drift-tunable vehicles', body: 'This event adds Drift Tuning eligibility for the Annis Elegy Retro Custom, Invetero Coquette, and Vapid Dominator GTT. Selected vehicles are also discounted by 30 percent until the rotation changes.', meta: 'Vehicles · verify in-game before purchase' },
+      { title: 'Community rules for event reports', body: 'Share builds, race routes, contract advice, and deal reviews. Mark spoilers, avoid cheats and account-selling offers, and label community findings as reports rather than official Rockstar information.', meta: 'Community · moderation standard' }
+    ]
+  },
+  {
     id: 'release',
     title: 'Release & editions',
     label: 'Official news',

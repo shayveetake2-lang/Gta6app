@@ -277,6 +277,7 @@ main { padding: 1.25rem 0 2.5rem; }
 .badge--tech { background: #8b5cf6; color: #ffffff; }
 .badge--general { background: #64748b; color: #ffffff; }
 .badge--news { background: #0284c7; color: #ffffff; }
+.badge--gta-online { background: #f97316; color: #1c0a00; }
 .badge--off-topic { background: #d97706; color: #ffffff; }
 .badge--official { background: #059669; color: #ffffff; }
 .badge--gameplay { background: #7c3aed; color: #ffffff; }

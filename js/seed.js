@@ -50,6 +50,114 @@ export const SEED = {
   ],
   walkthroughs: [
     {
+      id: 'gtao-event-drift-transform',
+      title: 'GTA Online Event Week: Drift and Transform Races',
+      game: 'GTA Online',
+      difficulty: 'easy',
+      duration: 45,
+      author: 'admin',
+      likes: 0,
+      approved: true,
+      updatedAt: '2026-08-27',
+      cover: '🏁',
+      summary: 'Make the most of the 27 August to 2 September Drift and Transform event, including the three-race GTA$100,000 challenge.',
+      tags: ['GTA Online', 'event week', 'races', 'weekly challenge'],
+      steps: [
+        'Complete three Drift Races to earn the GTA$100,000 weekly challenge reward. Winning is not required.',
+        'Use the 6x GTA$ and RP window on selected Drift and Transform Races from 28 to 30 August.',
+        'Use Random Transform Races for 3x GTA$ and RP, or Drift Races for 2x GTA$, RP, and LS Car Meet Rep.',
+        'Complete a Drift Race in an Ubermacht Cypher to unlock the Glitch Camo Drift Livery; delivery can take up to 72 hours.',
+        'Switch to Auto Shop Robbery Contracts when you want structured missions with 2x GTA$, RP, and LS Car Meet Rep.'
+      ]
+    },
+    {
+      id: 'gtao-drift-guide',
+      title: 'Drift Guide: Tuning, Technique, and Race Tips',
+      game: 'GTA Online',
+      difficulty: 'medium',
+      duration: 30,
+      author: 'sable',
+      likes: 0,
+      approved: true,
+      updatedAt: '2026-08-27',
+      cover: '💨',
+      summary: 'Learn controlled oversteer, avoid common mistakes, and prepare an eligible car for Drift Races.',
+      tags: ['GTA Online', 'drifting', 'LS Car Meet', 'races'],
+      steps: [
+        'Enter a corner with enough speed, turn in, then tap the handbrake or use throttle to break rear-wheel traction.',
+        'Counter-steer into the slide and make small throttle adjustments to hold the drift.',
+        'Avoid entering too fast, holding the handbrake too long, or trying to drift every corner.',
+        'Test Drift Tuning in a low-pressure session before racing competitively.',
+        'The Annis Elegy Retro Custom, Invetero Coquette, and Vapid Dominator GTT are eligible for Drift Tuning in this event.',
+        'Complete three Drift Races to finish the weekly challenge.'
+      ]
+    },
+    {
+      id: 'gtao-auto-shop-contracts',
+      title: 'Auto Shop Robbery Contracts: Solo Setup Guide',
+      game: 'GTA Online',
+      difficulty: 'medium',
+      duration: 60,
+      author: 'nova',
+      likes: 0,
+      approved: true,
+      updatedAt: '2026-08-27',
+      cover: '🔧',
+      summary: 'A practical route for running Auto Shop Robbery Contracts during the 2x reward event week.',
+      tags: ['GTA Online', 'Auto Shop', 'money', 'solo'],
+      steps: [
+        'Buy an Auto Shop property and enter it to access the planning board.',
+        'Choose an available Robbery Contract and complete its preparation missions.',
+        'Stock up on armor and snacks before starting the finale.',
+        'Use a fast armoured vehicle between objectives and take safe routes when playing solo.',
+        'Finish the finale to collect the 2x GTA$, RP, and LS Car Meet Rep payout.',
+        'Rotate into Drift or Random Transform Races when new contracts are on cooldown.'
+      ]
+    },
+    {
+      id: 'gtao-vehicle-spotlight',
+      title: 'Vehicle Spotlight: Sultan Classic and Veto Classic',
+      game: 'GTA Online',
+      difficulty: 'easy',
+      duration: 15,
+      author: 'mapmaker',
+      likes: 0,
+      approved: true,
+      updatedAt: '2026-08-27',
+      cover: '🚘',
+      summary: 'Track the weekly Podium Vehicle, Prize Ride requirement, and the 30 percent discount watchlist.',
+      tags: ['GTA Online', 'vehicles', 'Lucky Wheel', 'Prize Ride'],
+      steps: [
+        'Visit The Diamond Casino and spin the Lucky Wheel once per real-world day for a chance at the Karin Sultan Classic.',
+        'Place in the top five of the LS Car Meet Series for four days in a row to unlock the Dinka Veto Classic Prize Ride.',
+        'Track each of the four top-five finishes and claim the Prize Ride after the requirement is complete.',
+        'Check the weekly discounts before buying the Cheval Taipan, Vapid Flash GT, Invetero Coquette D5, Annis ZR350, or other watchlist vehicles.',
+        'Remember that weekly vehicles and discounts rotate after the event ends.'
+      ]
+    },
+    {
+      id: 'gtao-weekend-racing-grind',
+      title: 'Weekend Racing Grind: 6x GTA$ and RP Route',
+      game: 'GTA Online',
+      difficulty: 'easy',
+      duration: 50,
+      author: 'pixelpush',
+      likes: 0,
+      approved: true,
+      updatedAt: '2026-08-27',
+      cover: '💰',
+      summary: 'A flexible weekend route for the 28 to 30 August six-times reward window and the rest of Drift Week.',
+      tags: ['GTA Online', 'money', 'races', 'grind'],
+      steps: [
+        'Start with a Drift Race and repeat until the three-race weekly challenge is complete.',
+        'Claim the GTA$100,000 challenge reward after participating in three Drift Races.',
+        'Move into selected Drift and Transform Races during the 6x reward window.',
+        'Rotate into Random Transform Races for 3x GTA$ and RP when you want a change of pace.',
+        'Use Auto Shop Robbery Contracts for structured 2x-reward missions between race queues.',
+        'Track earnings, race wins, and LS Car Meet Reputation so you can compare your route next week.'
+      ]
+    },
+    {
       id: 'wt-1',
       title: 'Prologue: Getting Out of Town',
       game: 'GTA 6',
@@ -126,6 +234,56 @@ export const SEED = {
     }
   ],
   threads: [
+    {
+      id: 'gtao-th-drift-build',
+      title: 'Show your drift build',
+      category: 'GTA Online',
+      author: 'admin',
+      likes: 0,
+      createdAt: '2026-08-27',
+      body: 'Post your vehicle, upgrades, controller settings, and best tips for holding a long drift during Drift Week.',
+      replies: []
+    },
+    {
+      id: 'gtao-th-weekly-challenge',
+      title: 'Best way to finish the weekly challenge?',
+      category: 'GTA Online',
+      author: 'admin',
+      likes: 0,
+      createdAt: '2026-08-27',
+      body: 'Which Drift Races feel fastest and easiest for completing three races? Winning is not required, so share a reliable route for newer players.',
+      replies: []
+    },
+    {
+      id: 'gtao-th-transform-strategy',
+      title: 'Transform Race strategy',
+      category: 'GTA Online',
+      author: 'admin',
+      likes: 0,
+      createdAt: '2026-08-27',
+      body: 'Do you prioritise clean checkpoint lines, aggressive overtakes, or risky shortcuts when the vehicle class changes?',
+      replies: []
+    },
+    {
+      id: 'gtao-th-contract-crew',
+      title: 'Auto Shop contract crew finder',
+      category: 'GTA Online',
+      author: 'admin',
+      likes: 0,
+      createdAt: '2026-08-27',
+      body: 'Find players for Auto Shop preparation missions and contract finales. Include your platform, timezone, and preferred playstyle.',
+      replies: []
+    },
+    {
+      id: 'gtao-th-vehicle-deals',
+      title: 'Vehicle deal verdicts',
+      category: 'GTA Online',
+      author: 'admin',
+      likes: 0,
+      createdAt: '2026-08-27',
+      body: 'Which discounted vehicle is worth buying this week, and which should players skip? Explain the value for new and returning players.',
+      replies: []
+    },
     {
       id: 'th-1',
       title: 'Best settings for 60fps on mid-range hardware?',
@@ -621,7 +779,7 @@ export const SEED = {
   ]
 };
 
-export const CATEGORIES = ['General', 'Guides', 'Tech', 'News', 'Off-topic'];
+export const CATEGORIES = ['General', 'Guides', 'Tech', 'News', 'GTA Online', 'Off-topic'];
 
 export const TROPHIES = [
   { id: 't-01', title: 'Welcome to Vice City', description: 'Complete the opening mission.', category: 'Story', tier: 'Bronze' },
