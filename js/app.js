@@ -13,7 +13,7 @@ import { isConfigured } from './firebase.js';
   var searchInput = document.getElementById('globalSearchInput');
   var achievementApi = window.ACHIEVEMENT_API_URL || '';
 
-  var state = { difficulty: 'all', query: '', category: 'all', accountQuery: '' };
+  var state = { difficulty: 'all', query: '', category: 'all', accountQuery: '', globalQuery: '' };
 
   // Each debounced handler needs its own timer, or the search inputs cancel each other.
   function debounce(fn, wait) {
@@ -90,6 +90,16 @@ import { isConfigured } from './firebase.js';
       '</a>';
   }
 
+  function contentCard(item) {
+    return '<article class="card card--content">' +
+      '<div class="card__body">' +
+        '<p class="card__meta">' + esc(item.section) + ' · ' + esc(item.meta) + '</p>' +
+        '<h3 class="card__title">' + esc(item.title) + '</h3>' +
+        '<p>' + esc(item.body) + '</p>' +
+      '</div>' +
+    '</article>';
+  }
+
   function achievementRow(item) {
     return '<article class="achievement-row">' +
       (item.iconUrl ? '<img class="achievement-row__icon" src="' + esc(item.iconUrl) + '" alt="" loading="lazy" />' : '<span class="achievement-row__icon achievement-row__icon--empty" aria-hidden="true">★</span>') +
@@ -125,7 +135,7 @@ import { isConfigured } from './firebase.js';
 
   var Data = {};
   ['listUsers', 'getProfile', 'getCurrentProfile', 'updateProfile', 'listWalkthroughs', 'getWalkthrough', 'listThreads',
-    'getThread', 'createThread', 'addReply', 'categories'].forEach(function (method) {
+    'getThread', 'createThread', 'addReply', 'categories', 'listContent'].forEach(function (method) {
     Data[method] = function () {
       return DB[method].apply(DB, arguments).catch(function (err) {
         console.error('[db] ' + method + ' failed:', err);
@@ -182,6 +192,40 @@ import { isConfigured } from './firebase.js';
   }
 
   var views = {
+    '/search': function () {
+      var query = state.globalQuery.trim();
+      if (!query) return render(emptyState('Enter a search term to search the app.'));
+      var needle = query.toLowerCase();
+      render('<div class="section-head"><h2>Search results</h2><span class="card__meta">Searching for “' + esc(query) + '”</span></div>' + emptyState('Searching…'));
+
+      Promise.all([
+        Data.listWalkthroughs({}),
+        Data.listThreads(),
+        Data.listUsers({}),
+        Data.listContent()
+      ]).then(function (res) {
+        var guides = res[0].filter(function (w) { return (w.title + ' ' + w.summary + ' ' + (w.tags || []).join(' ')).toLowerCase().includes(needle); });
+        var threads = res[1].filter(function (t) { return (t.title + ' ' + t.body + ' ' + t.category + ' ' + t.author).toLowerCase().includes(needle); });
+        var users = res[2].filter(function (u) { return (u.username + ' ' + u.displayName + ' ' + (u.bio || '') + ' ' + (u.location || '')).toLowerCase().includes(needle); });
+        var content = [];
+        res[3].forEach(function (section) {
+          section.items.forEach(function (item) {
+            if ((item.title + ' ' + item.body + ' ' + item.meta + ' ' + section.title).toLowerCase().includes(needle)) {
+              content.push({ section: section.title, title: item.title, body: item.body, meta: item.meta });
+            }
+          });
+        });
+
+        var total = guides.length + threads.length + users.length + content.length;
+        var html = '<div class="section-head"><h2>Search results</h2><span class="card__meta">' + total + (total === 1 ? ' result' : ' results') + '</span></div>';
+        if (!total) return render(html + emptyState('Nothing in the app matches “' + esc(query) + '”.'));
+        if (guides.length) html += '<div class="section-head"><h3>Walkthroughs</h3></div><div class="grid">' + guides.map(walkthroughCard).join('') + '</div>';
+        if (threads.length) html += '<div class="section-head"><h3>Forum discussions</h3></div><div class="stack">' + threads.map(threadRow).join('') + '</div>';
+        if (users.length) html += '<div class="section-head"><h3>Accounts</h3></div><div class="grid">' + users.map(accountCard).join('') + '</div>';
+        if (content.length) html += '<div class="section-head"><h3>GTA6 information</h3></div><div class="grid">' + content.map(contentCard).join('') + '</div>';
+        render(html);
+      });
+    },
     '/achievements': function () {
       render('' +
         '<div class="section-head"><h2>Achievement tracker</h2><span class="card__meta">Steam · Xbox · PlayStation</span></div>' +
@@ -554,15 +598,13 @@ import { isConfigured } from './firebase.js';
 
   searchForm.addEventListener('submit', function (e) {
     e.preventDefault();
-    state.accountQuery = searchInput.value;
-    if (parseHash().path === '/accounts') refreshAccounts();
-    else location.hash = '#/accounts';
+    state.globalQuery = searchInput.value;
+    if (parseHash().path === '/search') views['/search']();
+    else location.hash = '#/search';
   });
 
   searchInput.addEventListener('input', debounce(function () {
-    state.accountQuery = searchInput.value;
-    if (parseHash().path === '/accounts') refreshAccounts();
-    else if (state.accountQuery.trim()) location.hash = '#/accounts';
+    state.globalQuery = searchInput.value;
   }));
 
   document.getElementById('year').textContent = new Date().getFullYear();
