@@ -8,7 +8,6 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
   var navToggle = document.getElementById('navToggle');
   var nav = document.getElementById('primaryNav');
   var scrim = document.getElementById('scrim');
-  var themeToggle = document.getElementById('themeToggle');
   var searchForm = document.getElementById('globalSearch');
   var searchInput = document.getElementById('globalSearchInput');
   var achievementApi = window.ACHIEVEMENT_API_URL || '';
@@ -1672,10 +1671,12 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
   try { savedTheme = localStorage.getItem('gta6.theme'); } catch (e) { /* storage blocked */ }
   if (savedTheme) document.documentElement.dataset.theme = savedTheme;
 
-  themeToggle.addEventListener('click', function () {
-    var next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
-    document.documentElement.dataset.theme = next;
-    try { localStorage.setItem('gta6.theme', next); } catch (e) { /* storage blocked */ }
+  document.querySelectorAll('.theme-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+      document.documentElement.dataset.theme = next;
+      try { localStorage.setItem('gta6.theme', next); } catch (e) { /* storage blocked */ }
+    });
   });
 
   /* ---------- search ---------- */

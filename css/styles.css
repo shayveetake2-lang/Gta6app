@@ -160,6 +160,7 @@ textarea:focus-visible,
 }
 .nav__link:hover { color: var(--text); background: var(--surface-2); }
 .nav__link.is-active { color: var(--accent-ink); background: var(--accent); }
+.nav__theme-item { display: none; }
 
 .search { margin-left: auto; flex: 0 1 260px; }
 .search input {
@@ -604,6 +605,8 @@ main { padding: 1.25rem 0 2.5rem; }
   .brand__text { font-size: .95rem; }
   .achievement-row { align-items: flex-start; }
   .achievement-status { margin-left: auto; }
+  #themeToggle { display: none; }
+  .nav__theme-item { display: block; }
 }
 
 @media (min-width: 861px) {
