@@ -1,5 +1,5 @@
 import { DB, dbReady } from './data.js?v=9';
-import { isConfigured } from './firebase.js';
+import { isConfigured, signInAdmin, signOutUser } from './firebase.js';
 
 (function () {
   'use strict';
@@ -386,10 +386,31 @@ import { isConfigured } from './firebase.js';
       });
     },
 
+    '/admin-login': function () {
+      render('' +
+        '<div class="section-head"><h2>Admin sign in</h2><span class="card__meta">Authorized moderators only</span></div>' +
+        '<form class="stack" id="adminLoginForm" style="max-width:420px">' +
+          '<div class="field"><label for="adminEmail">Email</label><input id="adminEmail" type="email" required autocomplete="username" /></div>' +
+          '<div class="field"><label for="adminPassword">Password</label><input id="adminPassword" type="password" required autocomplete="current-password" /></div>' +
+          '<button class="btn btn--primary" type="submit">Sign in</button>' +
+          '<p class="empty profile-form__status" id="adminLoginStatus" aria-live="polite" hidden></p>' +
+        '</form>');
+      document.getElementById('adminLoginForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        var status = document.getElementById('adminLoginStatus');
+        var submit = event.target.querySelector('[type="submit"]');
+        submit.disabled = true;
+        signInAdmin(document.getElementById('adminEmail').value.trim(), document.getElementById('adminPassword').value)
+          .then(function () { location.hash = '#/admin'; })
+          .catch(function (error) { status.hidden = false; status.textContent = error.message || 'Could not sign in.'; submit.disabled = false; });
+      });
+    },
+
     '/admin': function () {
       Data.getCurrentProfile().then(function (user) {
-        if (!user || user.role !== 'Admin') return render(emptyState('Admin access is required.'));
-        render('<div class="section-head"><h2>Walkthrough approvals</h2><span class="card__meta">Pending submissions</span></div>' + emptyState('Loading…'));
+        if (!user || user.role !== 'Admin') return render('<p class="empty">Admin access is required. <a href="#/admin-login">Sign in as an Admin</a></p>');
+        render('<div class="section-head"><h2>Walkthrough approvals</h2><span class="card__meta">Pending submissions</span><button class="btn btn--ghost" id="adminSignOut" type="button">Sign out</button></div>' + emptyState('Loading…'));
+        document.getElementById('adminSignOut').addEventListener('click', function () { signOutUser().then(function () { location.hash = '#/'; }); });
         Data.listPendingWalkthroughs().then(function (items) {
           if (!items.length) return render('<div class="section-head"><h2>Walkthrough approvals</h2></div>' + emptyState('No walkthroughs are waiting for approval.'));
           render('<div class="section-head"><h2>Walkthrough approvals</h2><span class="card__meta">' + items.length + ' pending</span></div><div class="stack">' + items.map(function (item) {

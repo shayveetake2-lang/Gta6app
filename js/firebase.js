@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js';
 import { getFirestore } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js';
+import { getAuth, signInAnonymously, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js';
 import { firebaseConfig } from './firebase-config.js';
 
 export const isConfigured = !/^YOUR_/.test(firebaseConfig.apiKey || 'YOUR_');
@@ -40,6 +40,16 @@ export const ready = (async function init() {
 
 export function getDb() { return firestore; }
 export function getUser() { return currentUser; }
+
+export async function signInAdmin(email, password) {
+  if (!auth) throw new Error('Firebase is not configured.');
+  await signInWithEmailAndPassword(auth, email, password);
+  return currentUser;
+}
+
+export async function signOutUser() {
+  if (auth) await signOut(auth);
+}
 
 export function displayName() {
   if (!currentUser) return 'guest';

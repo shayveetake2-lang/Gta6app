@@ -20,7 +20,7 @@ service cloud.firestore {
     match /walkthroughs/{walkthroughId} {
       allow read: if resource.data.get('approved', true) == true || isAdmin();
       allow create: if signedIn()
-        && request.resource.data.authorUid == request.auth.uid
+          && (request.resource.data.authorUid == request.auth.uid || isAdmin())
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
         && request.resource.data.title.size() <= 120
@@ -46,7 +46,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if true;
 
-      allow create: if isOwner(userId)
+      allow create: if isAdmin() || (isOwner(userId)
         && request.resource.data.username is string
         && request.resource.data.username.size() >= 3
         && request.resource.data.username.size() <= 24
@@ -59,7 +59,7 @@ service cloud.firestore {
         && request.resource.data.get('location', '').size() <= 80
         && request.resource.data.role == 'Member';
 
-      allow update: if isOwner(userId)
+      allow update: if isAdmin() || (isOwner(userId)
         && request.resource.data.diff(resource.data)
              .affectedKeys().hasOnly(['username', 'usernameLower', 'displayName', 'bio', 'location'])
         && request.resource.data.username is string
@@ -71,14 +71,14 @@ service cloud.firestore {
         && request.resource.data.displayName.size() > 0
         && request.resource.data.displayName.size() <= 60
         && request.resource.data.get('bio', '').size() <= 400
-        && request.resource.data.get('location', '').size() <= 80;
+        && request.resource.data.get('location', '').size() <= 80);
 
-      allow delete: if isOwner(userId);
+      allow delete: if isAdmin() || isOwner(userId);
 
       match /manualAchievements/{achievementId} {
-        allow read: if isOwner(userId);
+        allow read: if isAdmin() || isOwner(userId);
 
-        allow create: if isOwner(userId)
+        allow create: if isAdmin() || isOwner(userId)
           && request.resource.data.platform == 'manual'
           && request.resource.data.gameTitle is string
           && request.resource.data.gameTitle.size() > 0
@@ -91,13 +91,13 @@ service cloud.firestore {
           && request.resource.data.completedAt == null
           && request.resource.data.createdAt == request.time;
 
-        allow update: if isOwner(userId)
+        allow update: if isAdmin() || isOwner(userId)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unlocked', 'completedAt'])
           && (request.resource.data.unlocked
             ? request.resource.data.completedAt == request.time
             : request.resource.data.completedAt == null);
 
-        allow delete: if isOwner(userId);
+        allow delete: if isAdmin() || isOwner(userId);
       }
     }
 
@@ -105,7 +105,7 @@ service cloud.firestore {
       allow read: if true;
 
       allow create: if signedIn()
-        && isOwner(request.resource.data.authorUid)
+        && (isOwner(request.resource.data.authorUid) || isAdmin())
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
         && request.resource.data.title.size() <= 120
@@ -117,7 +117,7 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
 
       // Any signed-in user may bump the reply counter or add one like; nothing else may change.
-      allow update: if signedIn()
+      allow update: if isAdmin() || (signedIn()
         && (
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replyCount'])
             && request.resource.data.replyCount == resource.data.replyCount + 1)
@@ -126,19 +126,19 @@ service cloud.firestore {
             && request.resource.data.likes == resource.data.get('likes', 0) + 1)
         );
 
-      allow delete: if isOwner(resource.data.authorUid);
+      allow delete: if isAdmin() || isOwner(resource.data.authorUid);
 
       match /replies/{replyId} {
         allow read: if true;
 
-        allow create: if signedIn()
+        allow create: if isAdmin() || (signedIn()
           && isOwner(request.resource.data.authorUid)
           && request.resource.data.body is string
           && request.resource.data.body.size() > 0
           && request.resource.data.body.size() <= 2000
-          && request.resource.data.createdAt == request.time;
+          && request.resource.data.createdAt == request.time);
 
-        allow update, delete: if isOwner(resource.data.authorUid);
+        allow update, delete: if isAdmin() || isOwner(resource.data.authorUid);
       }
     }
   }
