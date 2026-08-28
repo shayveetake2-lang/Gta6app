@@ -1,4 +1,4 @@
-import { DB, dbReady } from './data.js';
+import { DB, dbReady } from './data.js?v=6';
 import { isConfigured } from './firebase.js';
 
 (function () {
@@ -135,7 +135,7 @@ import { isConfigured } from './firebase.js';
 
   var Data = {};
   ['listUsers', 'getProfile', 'getCurrentProfile', 'updateProfile', 'listWalkthroughs', 'getWalkthrough', 'listThreads',
-    'getThread', 'createThread', 'addReply', 'categories', 'listContent'].forEach(function (method) {
+    'getThread', 'createThread', 'createWalkthrough', 'listPendingWalkthroughs', 'approveWalkthrough', 'addReply', 'categories', 'listContent'].forEach(function (method) {
     Data[method] = function () {
       return DB[method].apply(DB, arguments).catch(function (err) {
         console.error('[db] ' + method + ' failed:', err);
@@ -294,7 +294,7 @@ import { isConfigured } from './firebase.js';
 
       var levels = ['all', 'easy', 'medium', 'hard'];
       render('' +
-        '<div class="section-head"><h2>Walkthroughs</h2><span class="card__meta" id="guideCount"></span></div>' +
+        '<div class="section-head"><h2>Walkthroughs</h2><span class="card__meta" id="guideCount"></span><a class="btn btn--ghost" href="#/new-walkthrough">Create a walkthrough</a></div>' +
         '<form class="toolbar" id="guideSearchForm" role="search">' +
           '<div class="field field--grow">' +
             '<label class="sr-only" for="guideSearch">Search guides</label>' +
@@ -339,6 +339,70 @@ import { isConfigured } from './firebase.js';
       });
 
       update();
+    },
+
+    '/new-walkthrough': function () {
+      render('' +
+        '<div class="section-head"><h2>Create a walkthrough</h2><span class="card__meta">Admin approval required before publishing</span></div>' +
+        '<form class="stack" id="walkthroughForm" style="max-width:640px">' +
+          '<div class="field"><label for="wTitle">Title</label><input id="wTitle" required maxlength="120" /></div>' +
+          '<div class="field"><label for="wSummary">Summary</label><textarea id="wSummary" required maxlength="500"></textarea></div>' +
+          '<div class="toolbar">' +
+            '<div class="field"><label for="wDifficulty">Difficulty</label><select id="wDifficulty"><option>easy</option><option>medium</option><option>hard</option></select></div>' +
+            '<div class="field"><label for="wDuration">Minutes</label><input id="wDuration" type="number" min="1" max="999" required /></div>' +
+            '<div class="field"><label for="wCover">Cover symbol</label><input id="wCover" maxlength="4" placeholder="📖" /></div>' +
+          '</div>' +
+          '<div class="field"><label for="wTags">Tags</label><input id="wTags" required placeholder="story, beginner" /></div>' +
+          '<div class="field"><label for="wSteps">Steps</label><textarea id="wSteps" required placeholder="One step per line"></textarea></div>' +
+          '<div class="toolbar"><button class="btn btn--primary" type="submit">Submit for approval</button><a class="btn btn--ghost" href="#/walkthroughs">Cancel</a></div>' +
+          '<p class="empty profile-form__status" id="walkthroughStatus" aria-live="polite" hidden></p>' +
+        '</form>');
+
+      document.getElementById('walkthroughForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        var status = document.getElementById('walkthroughStatus');
+        var submit = event.target.querySelector('[type="submit"]');
+        var steps = document.getElementById('wSteps').value.split('\n').map(function (step) { return step.trim(); }).filter(Boolean);
+        var tags = document.getElementById('wTags').value.split(',').map(function (tag) { return tag.trim().toLowerCase(); }).filter(Boolean);
+        submit.disabled = true;
+        Data.createWalkthrough({
+          title: document.getElementById('wTitle').value,
+          summary: document.getElementById('wSummary').value,
+          difficulty: document.getElementById('wDifficulty').value,
+          duration: document.getElementById('wDuration').value,
+          cover: document.getElementById('wCover').value,
+          tags: tags,
+          steps: steps
+        }).then(function () {
+          status.hidden = false;
+          status.textContent = 'Submitted. An Admin must approve this walkthrough before it becomes public.';
+          submit.disabled = false;
+          event.target.reset();
+        }).catch(function (error) {
+          status.hidden = false;
+          status.textContent = error.message || 'Could not submit walkthrough.';
+          submit.disabled = false;
+        });
+      });
+    },
+
+    '/admin': function () {
+      Data.getCurrentProfile().then(function (user) {
+        if (!user || user.role !== 'Admin') return render(emptyState('Admin access is required.'));
+        render('<div class="section-head"><h2>Walkthrough approvals</h2><span class="card__meta">Pending submissions</span></div>' + emptyState('Loading…'));
+        Data.listPendingWalkthroughs().then(function (items) {
+          if (!items.length) return render('<div class="section-head"><h2>Walkthrough approvals</h2></div>' + emptyState('No walkthroughs are waiting for approval.'));
+          render('<div class="section-head"><h2>Walkthrough approvals</h2><span class="card__meta">' + items.length + ' pending</span></div><div class="stack">' + items.map(function (item) {
+            return '<article class="thread"><div class="thread__body"><h3 class="thread__title">' + esc(item.title) + '</h3><p class="thread__meta">' + esc(item.summary) + ' · by ' + esc(item.author) + '</p></div><button class="btn btn--primary" data-approve="' + esc(item.id) + '" type="button">Approve</button></article>';
+          }).join('') + '</div>');
+          main.querySelectorAll('[data-approve]').forEach(function (button) {
+            button.addEventListener('click', function () {
+              button.disabled = true;
+              Data.approveWalkthrough(button.dataset.approve).then(function () { views['/admin'](); });
+            });
+          });
+        });
+      });
     },
 
     '/accounts': function () {

@@ -40,7 +40,7 @@ async function seed() {
   }
 
   for (const { id, updatedAt, ...guide } of SEED.walkthroughs) {
-    batch.set(db.doc(`walkthroughs/${id}`), { ...guide, updatedAt: ts(updatedAt) });
+    batch.set(db.doc(`walkthroughs/${id}`), { ...guide, approved: true, updatedAt: ts(updatedAt) });
   }
 
   for (const { id, replies, createdAt, ...thread } of SEED.threads) {

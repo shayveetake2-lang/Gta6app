@@ -11,13 +11,34 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
-    // Guides are published from the console / an admin tool, not from the client.
+    function isAdmin() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+    }
+
+    // New guides are private until an Admin approves them.
     match /walkthroughs/{walkthroughId} {
-      allow read: if true;
-      allow create, delete: if false;
-      allow update: if signedIn()
+      allow read: if resource.data.approved == true || isAdmin();
+      allow create: if signedIn()
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.summary is string
+        && request.resource.data.summary.size() > 0
+        && request.resource.data.summary.size() <= 500
+        && request.resource.data.steps is list
+        && request.resource.data.steps.size() >= 1
+        && request.resource.data.steps.size() <= 30
+        && request.resource.data.approved == false
+        && request.resource.data.likes == 0;
+      allow delete: if isAdmin();
+      allow update: if (signedIn()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
-        && request.resource.data.likes == resource.data.get('likes', 0) + 1;
+        && request.resource.data.likes == resource.data.get('likes', 0) + 1)
+        || (isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['approved'])
+        && request.resource.data.approved == true);
     }
 
     // Public profiles. A signed-in user may only create/edit their own document,
