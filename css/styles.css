@@ -6,7 +6,7 @@
   --border: #26708a;
   --text: #fff3e6;
   --muted: #a9c4c7;
-  --accent: #ff6f91;
+  --accent: #ff8a3d;
   --accent-ink: #24111b;
   --radius: 14px;
   --radius-sm: 9px;
@@ -23,7 +23,7 @@
   --border: #b9dfe0;
   --text: #163047;
   --muted: #51707a;
-  --accent: #e84f78;
+  --accent: #e86f32;
   --accent-ink: #ffffff;
   --shadow: 0 8px 24px rgba(27, 61, 77, .14);
 }
@@ -233,7 +233,7 @@ main { padding: 1.25rem 0 2.5rem; }
 }
 .badge--easy { background: #123f3d; color: #71f0c0; }
 .badge--medium { background: #60451d; color: #ffd166; }
-.badge--hard { background: #56233d; color: #ff9fb4; }
+.badge--hard { background: #5b3023; color: #ffad7a; }
 
 /* ---------- Controls ---------- */
 .btn {
