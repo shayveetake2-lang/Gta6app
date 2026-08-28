@@ -98,21 +98,23 @@ const localBackend = {
     return clone(current);
   },
   async createUser({ username, displayName, bio, location }) {
-    const usernameLower = username.toLowerCase();
+    const usernameTrimmed = username.trim();
+    const usernameLower = usernameTrimmed.toLowerCase();
     if (local.users.some((user) => user.usernameLower === usernameLower)) {
       throw new Error('That username is already in use.');
     }
     const user = {
       id: uid('user'),
-      username,
+      username: usernameTrimmed,
       usernameLower,
-      displayName,
+      displayName: (displayName || usernameTrimmed).trim(),
       bio: bio || '',
       location: location || '',
       role: 'Member',
       joinedAt: today()
     };
     local.users.unshift(user);
+    try { localStorage.setItem(LOCAL_PROFILE_KEY, user.id); } catch { /* storage unavailable */ }
     saveLocal();
     return clone(user);
   },
@@ -159,11 +161,14 @@ const localBackend = {
     return clone(local.threads.find((t) => t.id === id) || null);
   },
   async createThread({ title, category, body, author }) {
+    const user = await this.getCurrentProfile();
+    const threadAuthor = author || (user ? user.username : 'guest');
     const thread = {
       id: uid('th'),
       title,
       category: category || 'General',
-      author: author || 'guest',
+      author: threadAuthor,
+      authorUid: user ? user.id : null,
       createdAt: today(),
       body,
       replies: []
@@ -187,16 +192,25 @@ const localBackend = {
     return clone(walkthrough);
   },
   async addReply(threadId, { body, author }) {
+    const user = await this.getCurrentProfile();
     const thread = local.threads.find((t) => t.id === threadId);
     if (!thread) throw new Error('Thread not found');
-    const reply = { id: uid('r'), author: author || 'guest', createdAt: today(), body };
+    const replyAuthor = author || (user ? user.username : 'guest');
+    const reply = { id: uid('r'), author: replyAuthor, authorUid: user ? user.id : null, createdAt: today(), body };
     thread.replies.push(reply);
     saveLocal();
     return clone(reply);
   },
   async createUserWithAuth({ email, password, username, displayName: dName }) {
-    // Local fallback: just create user record without real auth
-    return this.createUser({ username, displayName: dName, bio: '', location: '' });
+    const user = await this.createUser({ username: username.trim(), displayName: (dName || username).trim(), bio: '', location: '' });
+    user.email = (email || '').trim();
+    const idx = local.users.findIndex((u) => u.id === user.id);
+    if (idx !== -1) {
+      local.users[idx].email = user.email;
+      saveLocal();
+    }
+    try { localStorage.setItem(LOCAL_PROFILE_KEY, user.id); } catch { /* storage unavailable */ }
+    return clone(user);
   },
   async loginWithUsernameOrEmail({ usernameOrEmail, password }) {
     // Local fallback: find user by username or pretend login succeeded
@@ -328,19 +342,30 @@ function firestoreBackend(db) {
     },
 
     async getProfile(id) {
+      if (!id) return null;
       const snap = await getDoc(doc(db, 'users', id));
-      if (!snap.exists()) return null;
-      return { id: snap.id, ...snap.data(), joinedAt: toDateString(snap.data().joinedAt) };
+      if (snap.exists()) {
+        return { id: snap.id, ...snap.data(), joinedAt: toDateString(snap.data().joinedAt) };
+      }
+      const snapByUsername = await getDocs(query(usersRef, where('usernameLower', '==', String(id).toLowerCase()), limit(1)));
+      if (!snapByUsername.empty) {
+        const d = snapByUsername.docs[0];
+        return { id: d.id, ...d.data(), joinedAt: toDateString(d.data().joinedAt) };
+      }
+      return null;
     },
 
     async getCurrentProfile() {
       const user = getUser();
-      if (!user) throw new Error('Sign in is not ready. Please try again.');
+      if (!user || user.isAnonymous) return null;
       const profile = await this.getProfile(user.uid);
-      return profile || {
+      if (profile) return profile;
+      const fallbackName = user.displayName || (user.email ? user.email.split('@')[0] : 'user_' + user.uid.slice(0, 8));
+      return {
         id: user.uid,
-        username: 'user_' + user.uid.slice(0, 8),
-        displayName: 'New community member',
+        username: fallbackName,
+        displayName: user.displayName || fallbackName,
+        email: user.email || '',
         bio: '',
         location: '',
         role: 'Member',
@@ -510,19 +535,27 @@ function firestoreBackend(db) {
     },
 
     async createUserWithAuth({ email, password, username, displayName: dName }) {
-      const firebaseUser = await authRegister(email, password, dName);
+      const usernameTrimmed = username.trim();
+      const usernameLower = usernameTrimmed.toLowerCase();
+      const existing = await getDocs(query(usersRef, where('usernameLower', '==', usernameLower), limit(1)));
+      if (!existing.empty) {
+        throw new Error('That username is already in use. Please choose another.');
+      }
+      const displayNameStr = (dName || usernameTrimmed).trim();
+      const firebaseUser = await authRegister(email, password, displayNameStr);
       const profileRef = doc(db, 'users', firebaseUser.uid);
-      await setDoc(profileRef, {
-        username,
-        usernameLower: username.toLowerCase(),
-        displayName: dName,
-        email,
+      const profileData = {
+        username: usernameTrimmed,
+        usernameLower,
+        displayName: displayNameStr,
+        email: (email || '').trim(),
         bio: '',
         location: '',
         role: 'Member',
         joinedAt: serverTimestamp()
-      });
-      return { id: firebaseUser.uid, username, displayName: dName, email, role: 'Member', joinedAt: today() };
+      };
+      await setDoc(profileRef, profileData);
+      return { id: firebaseUser.uid, ...profileData, joinedAt: today() };
     },
 
     async loginWithUsernameOrEmail({ usernameOrEmail, password }) {

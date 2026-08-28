@@ -36,7 +36,12 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
         '<a class="btn btn--ghost" href="#/profile/edit" style="font-size:.82rem">@' + esc(name) + '</a>' +
         '<button class="btn btn--ghost" id="logoutBtn" style="font-size:.82rem">Log out</button>';
       document.getElementById('logoutBtn').addEventListener('click', function () {
-        DB.logOut().then(function () { route(); });
+        DB.logOut().then(function () {
+          currentProfile = null;
+          currentAuthUser = null;
+          renderAuthArea();
+          route();
+        });
       });
     } else {
       authArea.innerHTML =
@@ -671,12 +676,19 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
         var btn = e.target.querySelector('[type="submit"]');
         btn.disabled = true;
         btn.textContent = 'Creating…';
+        var username = document.getElementById('regUsername').value.trim();
+        var displayName = document.getElementById('regDisplay').value.trim() || username;
+        var email = document.getElementById('regEmail').value.trim();
+        var password = document.getElementById('regPassword').value;
+
         DB.createUserWithAuth({
-          email: document.getElementById('regEmail').value.trim(),
-          password: document.getElementById('regPassword').value,
-          username: document.getElementById('regUsername').value.trim(),
-          displayName: document.getElementById('regDisplay').value.trim()
-        }).then(function () {
+          email: email,
+          password: password,
+          username: username,
+          displayName: displayName
+        }).then(async function (newProfile) {
+          currentProfile = newProfile || await DB.getCurrentProfile();
+          renderAuthArea();
           location.hash = '#/';
         }).catch(function (err) {
           errEl.textContent = err.message || 'Could not create account.';
@@ -709,7 +721,9 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
         DB.loginWithUsernameOrEmail({
           usernameOrEmail: document.getElementById('loginId').value.trim(),
           password: document.getElementById('loginPw').value
-        }).then(function () {
+        }).then(async function () {
+          currentProfile = await DB.getCurrentProfile();
+          renderAuthArea();
           location.hash = '#/';
         }).catch(function (err) {
           errEl.textContent = err.message || 'Login failed.';
