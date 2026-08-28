@@ -61,7 +61,7 @@ service cloud.firestore {
         && request.resource.data.displayName.size() <= 60
         && request.resource.data.get('bio', '').size() <= 400
         && request.resource.data.get('location', '').size() <= 80
-        && request.resource.data.role == 'Member';
+        && request.resource.data.role == 'Member');
 
       allow update: if isAdmin() || (isOwner(userId)
         && request.resource.data.diff(resource.data)
@@ -83,7 +83,7 @@ service cloud.firestore {
       match /manualAchievements/{achievementId} {
         allow read: if isAdmin() || isOwner(userId);
 
-        allow create: if isAdmin() || isOwner(userId)
+        allow create: if isAdmin() || (isOwner(userId)
           && request.resource.data.platform == 'manual'
           && request.resource.data.gameTitle is string
           && request.resource.data.gameTitle.size() > 0
@@ -94,13 +94,13 @@ service cloud.firestore {
           && request.resource.data.get('description', '').size() <= 500
           && request.resource.data.unlocked == false
           && request.resource.data.completedAt == null
-          && request.resource.data.createdAt == request.time;
+          && request.resource.data.createdAt == request.time);
 
-        allow update: if isAdmin() || isOwner(userId)
+        allow update: if isAdmin() || (isOwner(userId)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unlocked', 'completedAt'])
           && (request.resource.data.unlocked
             ? request.resource.data.completedAt == request.time
-            : request.resource.data.completedAt == null);
+            : request.resource.data.completedAt == null));
 
         allow delete: if isAdmin() || isOwner(userId);
       }
