@@ -271,9 +271,11 @@ main { padding: 1.25rem 0 2.5rem; }
   text-transform: uppercase;
   letter-spacing: .4px;
 }
-.badge--easy { background: #00d6b4; color: #08131a; }
-.badge--medium { background: #ffb000; color: #160b12; }
-.badge--hard { background: #ff315d; color: #ffffff; }
+.badge--missions { background: #3b82f6; color: #ffffff; }
+.badge--cars { background: #10b981; color: #ffffff; }
+.badge--races { background: #f59e0b; color: #ffffff; }
+.badge--money { background: #22c55e; color: #ffffff; }
+.badge--collectibles { background: #8b5cf6; color: #ffffff; }
 .badge--guides { background: #3b82f6; color: #ffffff; }
 .badge--tech { background: #8b5cf6; color: #ffffff; }
 .badge--general { background: #64748b; color: #ffffff; }

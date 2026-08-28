@@ -13,7 +13,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
   var achievementApi = window.ACHIEVEMENT_API_URL || '';
 
   var authArea = document.getElementById('authArea');
-  var state = { difficulty: 'all', game: 'all', query: '', category: 'all', accountQuery: '', siteQuery: '', newsCategory: 'all', newsQuery: '' };
+  var state = { game: 'all', query: '', category: 'all', accountQuery: '', siteQuery: '', newsCategory: 'all', newsQuery: '' };
 
   /* ---------- auth bar ---------- */
 
@@ -125,10 +125,11 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
   }
 
   function walkthroughCard(w) {
+    var catClass = (w.category || 'Missions').toLowerCase().replace(/[^a-z0-9]/g, '-');
     return '' +
       '<a class="card" href="#/walkthroughs/' + esc(w.id) + '">' +
         '<div class="card__body">' +
-          '<span class="badge badge--' + esc(w.difficulty) + '">' + esc(w.difficulty) + '</span>' +
+          '<span class="badge badge--' + esc(catClass) + '">' + esc(w.category || 'Missions') + '</span>' +
           '<h3 class="card__title">' + esc(w.title) + '</h3>' +
           '<p class="card__meta">' + esc(w.duration) + ' min · by ' + esc(w.author) + ' · updated ' + esc(w.updatedAt) + '</p>' +
           '<ul class="tags">' + w.tags.map(function (t) {
@@ -255,7 +256,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
             }).join('') + '</ol>' +
           '</div>' +
           '<aside class="sidecard">' +
-            '<span class="badge badge--' + esc(w.difficulty) + '">' + esc(w.difficulty) + '</span>' +
+            '<span class="badge badge--' + esc((w.category || 'Missions').toLowerCase().replace(/[^a-z0-9]/g, '-')) + '">' + esc(w.category || 'Missions') + '</span>' +
             '<dl>' +
               '<dt>Game</dt><dd>' + esc(w.game) + '</dd>' +
               '<dt>Time</dt><dd>' + esc(w.duration) + ' min</dd>' +
@@ -366,7 +367,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
                 '</div>' +
                 '<div class="about-box">' +
                   '<h3>🎮 Verified Guides</h3>' +
-                  '<p>Step-by-step walkthroughs for story missions, side quests, 100% checklists, and secret vehicle locations with difficulty filters.</p>' +
+                  '<p>Step-by-step walkthroughs for story missions, side quests, 100% checklists, and secret vehicle locations with category filters.</p>' +
                 '</div>' +
                 '<div class="about-box">' +
                   '<h3>★ Trophy & Achievement Tracker</h3>' +
@@ -408,7 +409,6 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
     '/walkthroughs': function (id) {
       if (id) return walkthroughDetail(id);
 
-      var levels = ['all', 'easy', 'medium', 'hard'];
       var canCreate = isEmailUser();
       render('' +
         '<div id="wtStatusMessage"></div>' +
@@ -426,10 +426,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
           return '<button class="chip' + (state.game === game ? ' is-active' : '') + '" data-game="' + esc(game) + '">' +
             (game === 'all' ? 'All games' : esc(game)) + '</button>';
         }).join('') + '</div>' +
-        '<div class="toolbar" id="filters">' + levels.map(function (l) {
-          return '<button class="chip' + (state.difficulty === l ? ' is-active' : '') + '" data-difficulty="' + l + '">' +
-            l.charAt(0).toUpperCase() + l.slice(1) + '</button>';
-        }).join('') + '</div>' +
+        '<div class="toolbar" id="filters"></div>' +
         '<div id="guideResults" aria-live="polite">' + emptyState('Loading…') + '</div>' +
         (canCreate ? '' +
           '<div class="modal-overlay" id="wtModal" hidden>' +
@@ -440,12 +437,13 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
               '<form class="stack" id="wtForm">' +
                 '<div class="field"><label for="wtTitle">Title</label><input id="wtTitle" required maxlength="120" placeholder="e.g. How to complete The Heist" /></div>' +
                 '<div class="field"><label for="wtGame">Game</label><input id="wtGame" value="GTA 6" maxlength="60" /></div>' +
-                '<div class="field"><label for="wtSummary">Summary</label><textarea id="wtSummary" maxlength="400" placeholder="Brief overview…"></textarea></div>' +
-                '<div class="field"><label for="wtSteps">Steps (one per line)</label><textarea id="wtSteps" required rows="6" placeholder="Step 1: Go to...&#10;Step 2: Talk to..."></textarea></div>' +
-                '<div style="display:flex;gap:1rem;">' +
-                  '<div class="field" style="flex:1"><label for="wtDifficulty">Difficulty</label><select id="wtDifficulty"><option>easy</option><option>medium</option><option>hard</option></select></div>' +
+                '<div style="display:flex;gap:1rem;flex-wrap:wrap;">' +
+                  '<div class="field" style="flex:1"><label for="wtCategory">Category</label><select id="wtCategory"><option>Missions</option><option>Cars</option><option>Races</option><option>Money</option><option>Collectibles</option><option value="__new__">+ Add New Category...</option></select></div>' +
                   '<div class="field" style="flex:1"><label for="wtDuration">Duration (mins)</label><input type="number" id="wtDuration" value="15" min="1" max="999" /></div>' +
                 '</div>' +
+                '<div class="field" id="wtNewCategoryField" style="display:none;"><label for="wtNewCategory">New Category Name</label><input id="wtNewCategory" placeholder="e.g. Combat, Secrets" maxlength="40" /></div>' +
+                '<div class="field"><label for="wtSummary">Summary</label><textarea id="wtSummary" maxlength="400" placeholder="Brief overview…"></textarea></div>' +
+                '<div class="field"><label for="wtSteps">Steps (one per line)</label><textarea id="wtSteps" required rows="6" placeholder="Step 1: Go to...&#10;Step 2: Talk to..."></textarea></div>' +
                 '<div class="field"><label for="wtTags">Tags (comma separated)</label><input id="wtTags" placeholder="mission, stealth, weapons" /></div>' +
                 '<div style="margin-top:1rem;display:flex;justify-content:flex-end;"><button class="btn btn--primary" type="submit">Submit for review</button></div>' +
               '</form>' +
@@ -458,9 +456,26 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
       if (input) input.value = state.query;
 
       function refresh() {
-        Data.listWalkthroughs({ query: state.query, difficulty: state.difficulty, game: state.game }).then(function (items) {
+        Data.listWalkthroughs({ query: state.query, category: state.category, game: state.game }).then(function (items) {
           if (!results) return;
           count.textContent = '(' + items.length + ')';
+
+          Data.listWalkthroughs({ query: state.query, game: state.game }).then(function (allItems) {
+            var activeCats = new Set(['all', 'Missions', 'Cars', 'Races', 'Money', 'Collectibles']);
+            allItems.forEach(function (w) {
+              if (w.category) activeCats.add(w.category);
+            });
+            var categories = Array.from(activeCats);
+
+            var filtersContainer = document.getElementById('filters');
+            if (filtersContainer) {
+              filtersContainer.innerHTML = categories.map(function (c) {
+                return '<button class="chip' + (state.category === c ? ' is-active' : '') + '" data-category="' + esc(c) + '">' +
+                  esc(c === 'all' ? 'All' : c) + '</button>';
+              }).join('');
+            }
+          });
+
           if (!items.length) {
             results.innerHTML = emptyState(state.query ? 'No guides found matching "' + state.query + '"' : 'No walkthroughs yet.');
             return;
@@ -480,8 +495,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
 
       document.getElementById('filters').addEventListener('click', function (e) {
         if (!e.target.matches('.chip')) return;
-        state.difficulty = e.target.dataset.difficulty;
-        document.querySelectorAll('#filters .chip').forEach(function (c) { c.classList.toggle('is-active', c === e.target); });
+        state.category = e.target.dataset.category;
         refresh();
       });
 
@@ -500,6 +514,15 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
           document.getElementById('wtError').classList.remove('is-visible');
         });
         document.getElementById('wtModalClose').addEventListener('click', function () { wtModal.hidden = true; });
+
+        var catSelect = document.getElementById('wtCategory');
+        var newCatField = document.getElementById('wtNewCategoryField');
+        if (catSelect && newCatField) {
+          catSelect.addEventListener('change', function () {
+            newCatField.style.display = catSelect.value === '__new__' ? 'block' : 'none';
+          });
+        }
+
         document.getElementById('wtForm').addEventListener('submit', function (e) {
           e.preventDefault();
           var btn = e.target.querySelector('[type="submit"]');
@@ -507,6 +530,12 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
           errEl.classList.remove('is-visible');
           btn.disabled = true;
           btn.textContent = 'Submitting…';
+
+          var selectedCat = document.getElementById('wtCategory').value;
+          if (selectedCat === '__new__') {
+            selectedCat = document.getElementById('wtNewCategory').value.trim() || 'Missions';
+          }
+
           var rawTags = document.getElementById('wtTags').value;
           var tags = rawTags.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
           var steps = document.getElementById('wtSteps').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
@@ -515,12 +544,13 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
             game: document.getElementById('wtGame').value.trim(),
             summary: document.getElementById('wtSummary').value.trim(),
             steps: steps,
-            difficulty: document.getElementById('wtDifficulty').value,
+            category: selectedCat,
             duration: document.getElementById('wtDuration').value,
             tags: tags
           }).then(function () {
             wtModal.hidden = true;
             e.target.reset();
+            if (newCatField) newCatField.style.display = 'none';
             btn.disabled = false;
             btn.textContent = 'Submit for review';
             var statusDiv = document.getElementById('wtStatusMessage');
@@ -1104,7 +1134,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
               return '<a class="search-hit" href="#/walkthroughs/' + esc(w.id) + '">' +
                 '<div class="search-hit__body">' +
                   '<p class="search-hit__title">' + esc(w.title) + '</p>' +
-                  '<p class="search-hit__meta">' + esc(w.difficulty) + ' · by ' + esc(w.author) + ' · ' + esc(w.updatedAt) + '</p>' +
+                  '<p class="search-hit__meta">' + esc(w.category || 'Missions') + ' · by ' + esc(w.author) + ' · ' + esc(w.updatedAt) + '</p>' +
                 '</div>' +
               '</a>';
             }).join('') + '</div>';
@@ -1210,7 +1240,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
                 return '<div class="admin-row" data-wt-id="' + esc(w.id) + '">' +
                   '<div class="admin-row__body">' +
                     '<h3>' + esc(w.title) + '</h3>' +
-                    '<p class="admin-row__meta">Submitted by <strong>@' + esc(w.author) + '</strong> · ' + esc(w.difficulty) + ' · ' + esc(w.duration) + ' min · ' + esc(w.createdAt || w.updatedAt) + '</p>' +
+                    '<p class="admin-row__meta">Submitted by <strong>@' + esc(w.author) + '</strong> · ' + esc(w.category || 'Missions') + ' · ' + esc(w.duration) + ' min · ' + esc(w.createdAt || w.updatedAt) + '</p>' +
                     '<p class="admin-row__meta" style="margin-top:.3rem">' + esc(w.summary || '') + '</p>' +
                     (stepsCount ? '<details style="margin-top:.6rem;cursor:pointer;"><summary style="font-size:.84rem;color:var(--accent);font-weight:600;">View ' + stepsCount + ' Step' + (stepsCount === 1 ? '' : 's') + '</summary><div style="margin-top:.5rem;">' + stepsList + '</div></details>' : '') +
                   '</div>' +
@@ -1287,7 +1317,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
             '<div class="stack">' + items.map(function (w) {
               return '<div class="admin-row">' +
                 '<div class="admin-row__body">' +
-                  '<h3><a href="#/walkthroughs/' + esc(w.id) + '" style="color:var(--accent);text-decoration:none;">' + esc(w.title) + '</a> <span class="badge badge--' + esc(w.difficulty || 'medium') + '" style="vertical-align:middle;margin-left:.3rem;">' + esc(w.difficulty || 'medium') + '</span></h3>' +
+                  '<h3><a href="#/walkthroughs/' + esc(w.id) + '" style="color:var(--accent);text-decoration:none;">' + esc(w.title) + '</a> <span class="badge badge--' + esc((w.category || 'Missions').toLowerCase().replace(/[^a-z0-9]/g, '-')) + '" style="vertical-align:middle;margin-left:.3rem;">' + esc(w.category || 'Missions') + '</span></h3>' +
                   '<p class="admin-row__meta">By <strong>@' + esc(w.author) + '</strong> · ' + esc(w.game || 'GTA 6') + ' · ' + esc(w.duration) + ' min · ' + (w.likes || 0) + ' likes · ' + esc(w.updatedAt || w.createdAt || '') + '</p>' +
                   '<p class="admin-row__meta" style="margin-top:.25rem">' + esc(w.summary || '') + '</p>' +
                 '</div>' +

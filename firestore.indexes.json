@@ -12,7 +12,7 @@
       "collectionGroup": "walkthroughs",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "difficulty", "order": "ASCENDING" },
+        { "fieldPath": "category", "order": "ASCENDING" },
         { "fieldPath": "updatedAt", "order": "DESCENDING" }
       ]
     }

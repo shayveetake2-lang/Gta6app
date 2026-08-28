@@ -163,10 +163,10 @@ const localBackend = {
     saveLocal();
     return clone(achievement);
   },
-  async listWalkthroughs({ difficulty = 'all', game = 'all', query: q = '', includePending = false } = {}) {
+  async listWalkthroughs({ category = 'all', game = 'all', query: q = '', includePending = false } = {}) {
     const needle = q.trim().toLowerCase();
     return clone(local.walkthroughs.filter(
-      (w) => (includePending || w.approved !== false) && (difficulty === 'all' || w.difficulty === difficulty) && (game === 'all' || w.game === game) && matchesQuery(w, needle)
+      (w) => (includePending || w.approved !== false) && (category === 'all' || (w.category || '').toLowerCase() === category.toLowerCase()) && (game === 'all' || w.game === game) && matchesQuery(w, needle)
     ));
   },
   async getWalkthrough(id) {
@@ -242,13 +242,13 @@ const localBackend = {
   async logOut() {
     try { localStorage.removeItem(LOCAL_PROFILE_KEY); } catch { /* storage unavailable */ }
   },
-  async createWalkthrough({ title, game, difficulty, duration, summary, tags, steps }) {
+  async createWalkthrough({ title, game, category, duration, summary, tags, steps }) {
     const user = await this.getCurrentProfile();
     const wt = {
       id: uid('pwt'),
       title: title.trim(),
       game: game || 'GTA 6',
-      difficulty: difficulty || 'medium',
+      category: category || 'Missions',
       duration: Number(duration) || 30,
       author: user ? user.username : 'guest',
       authorUid: user ? user.id : null,
@@ -514,14 +514,14 @@ function firestoreBackend(db) {
       return { id, unlocked, completedAt: unlocked ? today() : null };
     },
 
-    async listWalkthroughs({ difficulty = 'all', game = 'all', query: q = '', includePending = false } = {}) {
+    async listWalkthroughs({ category = 'all', game = 'all', query: q = '', includePending = false } = {}) {
       const snap = await getDocs(query(walkthroughsRef, limit(100)));
       const needle = q.trim().toLowerCase();
       const published = snap.docs
         .map((d) => ({ id: d.id, ...d.data(), updatedAt: toDateString(d.data().updatedAt) }))
         .concat(SEED.walkthroughs.filter((item) => item.id.startsWith('gtao-') && !snap.docs.some((d) => d.id === item.id)))
         .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt))
-        .filter((w) => (game === 'all' || w.game === game) && (difficulty === 'all' || w.difficulty === difficulty))
+        .filter((w) => (game === 'all' || w.game === game) && (category === 'all' || (w.category || '').toLowerCase() === category.toLowerCase()))
         .filter((w) => matchesQuery(w, needle));
       return published;
     },
@@ -649,14 +649,14 @@ function firestoreBackend(db) {
       await authSignOut();
     },
 
-    async createWalkthrough({ title, game, difficulty, duration, summary, tags, steps }) {
+    async createWalkthrough({ title, game, category, duration, summary, tags, steps }) {
       const user = getUser();
       if (!user || user.isAnonymous) throw new Error('You must be signed in to create a walkthrough.');
       const profile = await this.getCurrentProfile();
       const ref = await addDoc(pendingWalkthroughsRef, {
         title: title.trim(),
         game: game || 'GTA 6',
-        difficulty: difficulty || 'medium',
+        category: category || 'Missions',
         duration: Number(duration) || 30,
         author: profile ? profile.username : displayName(),
         authorUid: user.uid,
@@ -667,7 +667,7 @@ function firestoreBackend(db) {
         tags: Array.isArray(tags) ? tags : [],
         steps: Array.isArray(steps) ? steps : []
       });
-      return { id: ref.id, title, game, difficulty, author: profile ? profile.username : displayName(), updatedAt: today() };
+      return { id: ref.id, title, game, category, author: profile ? profile.username : displayName(), updatedAt: today() };
     },
 
     async listPendingWalkthroughs() {
@@ -688,7 +688,7 @@ function firestoreBackend(db) {
       const published = {
         title: data.title || '',
         game: data.game || 'GTA 6',
-        difficulty: data.difficulty || 'medium',
+        category: data.category || 'Missions',
         duration: Number(data.duration) || 30,
         author: data.author || 'Contributor',
         authorUid: data.authorUid || null,
