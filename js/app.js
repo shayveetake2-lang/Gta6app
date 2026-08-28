@@ -200,14 +200,18 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
   function walkthroughDetail(id) {
     Data.getWalkthrough(id).then(function (w) {
       if (!w) return render(emptyState('That walkthrough could not be found.'));
+      var isAdmin = currentProfile && currentProfile.role === 'Admin';
       render('' +
-        '<a class="btn btn--ghost" href="#/walkthroughs">← Back to guides</a>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem;">' +
+          '<a class="btn btn--ghost" href="#/walkthroughs">← Back to guides</a>' +
+          (isAdmin ? '<button class="btn btn--danger btn--sm" id="adminDeleteWalkthroughBtn">Delete walkthrough (Admin)</button>' : '') +
+        '</div>' +
         '<div class="section-head"><h2>' + esc(w.title) + '</h2></div>' +
         '<div class="detail">' +
           '<div>' +
             '<p class="card__meta">' + esc(w.summary) + '</p>' +
             '<h3>Steps</h3>' +
-            '<ol class="steps">' + w.steps.map(function (s) {
+            '<ol class="steps">' + (w.steps || []).map(function (s) {
               return '<li>' + esc(s) + '</li>';
             }).join('') + '</ol>' +
           '</div>' +
@@ -219,11 +223,27 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
               '<dt>Author</dt><dd>' + esc(w.author) + '</dd>' +
               '<dt>Updated</dt><dd>' + esc(w.updatedAt) + '</dd>' +
             '</dl>' +
-            '<ul class="tags">' + w.tags.map(function (t) {
+            '<ul class="tags">' + (w.tags || []).map(function (t) {
               return '<li class="tag">#' + esc(t) + '</li>';
             }).join('') + '</ul>' +
           '</aside>' +
         '</div>');
+
+      var delBtn = document.getElementById('adminDeleteWalkthroughBtn');
+      if (delBtn) {
+        delBtn.addEventListener('click', function () {
+          if (!confirm('Permanently delete walkthrough "' + w.title + '"?')) return;
+          delBtn.disabled = true;
+          delBtn.textContent = 'Deleting…';
+          DB.deleteWalkthrough(w.id).then(function () {
+            location.hash = '#/walkthroughs';
+          }).catch(function (err) {
+            alert('Error deleting walkthrough: ' + (err.message || err));
+            delBtn.disabled = false;
+            delBtn.textContent = 'Delete walkthrough (Admin)';
+          });
+        });
+      }
     });
   }
 
@@ -550,8 +570,12 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
     '/thread': function (id) {
       Data.getThread(id).then(function (t) {
         if (!t) return render(emptyState('That thread could not be found.'));
+        var isAdmin = currentProfile && currentProfile.role === 'Admin';
         render('' +
-          '<a class="btn btn--ghost" href="#/forum">← Back to forum</a>' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem;">' +
+            '<a class="btn btn--ghost" href="#/forum">← Back to forum</a>' +
+            (isAdmin ? '<button class="btn btn--danger btn--sm" id="adminDeleteThreadBtn">Delete thread (Admin)</button>' : '') +
+          '</div>' +
           '<div class="section-head"><h2>' + esc(t.title) + '</h2></div>' +
           '<div class="post">' +
             '<span class="avatar" aria-hidden="true">' + initials(t.author) + '</span>' +
@@ -577,6 +601,22 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
                 '</div>' +
               '</div>')
         );
+
+        var delThreadBtn = document.getElementById('adminDeleteThreadBtn');
+        if (delThreadBtn) {
+          delThreadBtn.addEventListener('click', function () {
+            if (!confirm('Permanently delete thread "' + t.title + '" and all its replies?')) return;
+            delThreadBtn.disabled = true;
+            delThreadBtn.textContent = 'Deleting…';
+            DB.deleteThread(t.id).then(function () {
+              location.hash = '#/forum';
+            }).catch(function (err) {
+              alert('Error deleting thread: ' + (err.message || err));
+              delThreadBtn.disabled = false;
+              delThreadBtn.textContent = 'Delete thread (Admin)';
+            });
+          });
+        }
 
         var replyForm = document.getElementById('replyForm');
         if (replyForm) {
@@ -807,15 +847,17 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
           return;
         }
         render('' +
-          '<div class="section-head"><h2>Admin Dashboard</h2><span class="card__meta">Signed in as ' + esc(profile.displayName || profile.username) + '</span></div>' +
+          '<div class="section-head"><h2>Admin Dashboard</h2><span class="card__meta">Signed in as ' + esc(profile.displayName || profile.username) + ' (Admin)</span></div>' +
           '<div class="admin-tabs">' +
-            '<button class="admin-tab is-active" data-tab="walkthroughs">Pending walkthroughs</button>' +
-            '<button class="admin-tab" data-tab="users">User management</button>' +
+            '<button class="admin-tab is-active" data-tab="pending">Pending walkthroughs</button>' +
+            '<button class="admin-tab" data-tab="walkthroughs">Live walkthroughs</button>' +
             '<button class="admin-tab" data-tab="moderation">Forum moderation</button>' +
+            '<button class="admin-tab" data-tab="users">User management</button>' +
           '</div>' +
-          '<div id="adminPanel-walkthroughs" class="admin-panel is-active"><p class="empty">Loading…</p></div>' +
-          '<div id="adminPanel-users" class="admin-panel"><p class="empty">Loading…</p></div>' +
-          '<div id="adminPanel-moderation" class="admin-panel"><p class="empty">Loading…</p></div>');
+          '<div id="adminPanel-pending" class="admin-panel is-active"><p class="empty">Loading…</p></div>' +
+          '<div id="adminPanel-walkthroughs" class="admin-panel"><p class="empty">Loading…</p></div>' +
+          '<div id="adminPanel-moderation" class="admin-panel"><p class="empty">Loading…</p></div>' +
+          '<div id="adminPanel-users" class="admin-panel"><p class="empty">Loading…</p></div>');
 
         // Tab switching
         document.querySelector('.admin-tabs').addEventListener('click', function (e) {
@@ -824,15 +866,17 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
           document.querySelectorAll('.admin-tab').forEach(function (t) { t.classList.remove('is-active'); });
           document.querySelectorAll('.admin-panel').forEach(function (p) { p.classList.remove('is-active'); });
           tab.classList.add('is-active');
-          document.getElementById('adminPanel-' + tab.dataset.tab).classList.add('is-active');
+          var targetPanel = document.getElementById('adminPanel-' + tab.dataset.tab);
+          if (targetPanel) targetPanel.classList.add('is-active');
         });
 
-        // -- Walkthroughs panel --
+        // ==========================================
+        // 1. Pending Walkthroughs Panel
+        // ==========================================
         var pendingStatusMsg = '';
-
         function loadPending() {
           DB.listPendingWalkthroughs().then(function (items) {
-            var el = document.getElementById('adminPanel-walkthroughs');
+            var el = document.getElementById('adminPanel-pending');
             if (!el) return;
             var alertHtml = pendingStatusMsg ? pendingStatusMsg : '';
             if (!items.length) {
@@ -846,7 +890,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
                 var stepsList = (w.steps || []).map(function (s, i) {
                   return '<div style="margin-top:.4rem;padding-left:.8rem;border-left:2px solid var(--accent);">' +
                     '<strong>Step ' + (i + 1) + (s.title ? ': ' + esc(s.title) : '') + '</strong>' +
-                    '<div style="font-size:.85rem;color:var(--muted);white-space:pre-wrap;">' + esc(s.content || '') + '</div>' +
+                    '<div style="font-size:.85rem;color:var(--muted);white-space:pre-wrap;">' + esc(s.content || s) + '</div>' +
                   '</div>';
                 }).join('');
 
@@ -859,13 +903,13 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
                   '</div>' +
                   '<div class="admin-row__actions">' +
                     '<button class="btn btn--approve btn--sm" data-action="approve" data-id="' + esc(w.id) + '" data-title="' + esc(w.title) + '">Approve & Publish</button>' +
-                    '<button class="btn btn--danger btn--sm" data-action="delete-wt" data-id="' + esc(w.id) + '" data-title="' + esc(w.title) + '">Delete</button>' +
+                    '<button class="btn btn--danger btn--sm" data-action="delete-pending-wt" data-id="' + esc(w.id) + '" data-title="' + esc(w.title) + '">Delete</button>' +
                   '</div>' +
                 '</div>';
               }).join('') + '</div>';
 
             el.querySelectorAll('[data-action]').forEach(function (btn) {
-              btn.addEventListener('click', function (ev) {
+              btn.addEventListener('click', function () {
                 var action = btn.dataset.action;
                 var id = btn.dataset.id;
                 var title = btn.dataset.title;
@@ -880,14 +924,14 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
                       '<a class="btn btn--primary btn--sm" href="#/walkthroughs" style="font-size:.82rem;">View on Public Walkthroughs Page →</a>' +
                     '</div>';
                     loadPending();
+                    loadPublished();
                   }).catch(function (err) {
                     pendingStatusMsg = '<div class="admin-notice form-error is-visible" style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;">' +
                       '<span>Error approving walkthrough: ' + esc(err.message || err) + '</span>' +
                       '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.2rem;">✕</button></div>';
                     loadPending();
-                    // button state is reset on next render via loadPending
                   });
-                } else if (action === 'delete-wt') {
+                } else if (action === 'delete-pending-wt') {
                   if (!confirm('Permanently delete pending walkthrough "' + title + '"?')) return;
                   btn.disabled = true;
                   btn.textContent = 'Deleting…';
@@ -910,67 +954,210 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
         }
         loadPending();
 
-        // -- Users panel --
+        // ==========================================
+        // 2. Published Walkthroughs Panel
+        // ==========================================
+        var publishedStatusMsg = '';
+        function renderPublishedPanel(items) {
+          var el = document.getElementById('adminPanel-walkthroughs');
+          if (!el) return;
+          var alertHtml = publishedStatusMsg ? publishedStatusMsg : '';
+          var searchHtml = '<div class="admin-search"><input id="adminPublishedSearch" placeholder="Search published walkthroughs by title, game, or author…" /></div>';
+          
+          if (!items.length) {
+            el.innerHTML = alertHtml + searchHtml + emptyState('No published walkthroughs found.');
+            setupPublishedSearch();
+            return;
+          }
+
+          el.innerHTML = alertHtml + searchHtml +
+            '<div class="stack">' + items.map(function (w) {
+              return '<div class="admin-row">' +
+                '<div class="admin-row__body">' +
+                  '<h3><a href="#/walkthroughs/' + esc(w.id) + '" style="color:var(--accent);text-decoration:none;">' + esc(w.title) + '</a> <span class="badge badge--' + esc(w.difficulty || 'medium') + '" style="vertical-align:middle;margin-left:.3rem;">' + esc(w.difficulty || 'medium') + '</span></h3>' +
+                  '<p class="admin-row__meta">By <strong>@' + esc(w.author) + '</strong> · ' + esc(w.game || 'GTA 6') + ' · ' + esc(w.duration) + ' min · ' + (w.likes || 0) + ' likes · ' + esc(w.updatedAt || w.createdAt || '') + '</p>' +
+                  '<p class="admin-row__meta" style="margin-top:.25rem">' + esc(w.summary || '') + '</p>' +
+                '</div>' +
+                '<div class="admin-row__actions">' +
+                  '<a class="btn btn--ghost btn--sm" href="#/walkthroughs/' + esc(w.id) + '">View</a>' +
+                  '<button class="btn btn--danger btn--sm" data-action="delete-published-wt" data-id="' + esc(w.id) + '" data-title="' + esc(w.title) + '">Remove</button>' +
+                '</div>' +
+              '</div>';
+            }).join('') + '</div>';
+
+          setupPublishedSearch();
+
+          el.querySelectorAll('[data-action="delete-published-wt"]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var id = btn.dataset.id;
+              var title = btn.dataset.title;
+              if (!confirm('Permanently remove published walkthrough "' + title + '" from the site?')) return;
+              btn.disabled = true;
+              btn.textContent = 'Removing…';
+              DB.deleteWalkthrough(id).then(function () {
+                publishedStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fff;">' +
+                  '<div style="font-weight:bold;color:#f87171;font-size:.92rem;">🗑️ Walkthrough Removed</div>' +
+                  '<p style="margin:0;font-size:.88rem;color:var(--text);">“' + esc(title) + '” was permanently removed from live walkthroughs.</p>' +
+                '</div>';
+                loadPublished();
+              }).catch(function (err) {
+                publishedStatusMsg = '<div class="admin-notice form-error is-visible" style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;">' +
+                  '<span>Error removing walkthrough: ' + esc(err.message || err) + '</span>' +
+                  '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.2rem;">✕</button></div>';
+                loadPublished();
+              });
+            });
+          });
+        }
+
+        function setupPublishedSearch() {
+          var input = document.getElementById('adminPublishedSearch');
+          if (!input) return;
+          input.addEventListener('input', debounce(function () {
+            var needle = input.value.trim().toLowerCase();
+            DB.listWalkthroughs({ query: needle }).then(renderPublishedPanel);
+          }));
+        }
+
+        function loadPublished() {
+          DB.listWalkthroughs({}).then(renderPublishedPanel);
+        }
+        loadPublished();
+
+        // ==========================================
+        // 3. Forum Moderation Panel (Threads)
+        // ==========================================
+        var moderationStatusMsg = '';
+        function renderModerationPanel(threads) {
+          var el = document.getElementById('adminPanel-moderation');
+          if (!el) return;
+          var alertHtml = moderationStatusMsg ? moderationStatusMsg : '';
+          var searchHtml = '<div class="admin-search"><input id="adminThreadSearch" placeholder="Search threads by title, author, or category…" /></div>';
+          
+          if (!threads.length) {
+            el.innerHTML = alertHtml + searchHtml + emptyState('No threads found.');
+            setupThreadSearch();
+            return;
+          }
+
+          el.innerHTML = alertHtml + searchHtml +
+            '<div class="stack">' + threads.map(function (t) {
+              var catClass = (t.category || 'general').toLowerCase().replace(/[^a-z0-9]/g, '-');
+              return '<div class="admin-row">' +
+                '<div class="admin-row__body">' +
+                  '<h3><a href="#/thread/' + esc(t.id) + '" style="color:var(--accent-2)">' + esc(t.title) + '</a> <span class="badge badge--' + esc(catClass) + '" style="vertical-align:middle;margin-left:.3rem;">' + esc(t.category || 'General') + '</span></h3>' +
+                  '<p class="admin-row__meta">By <strong>@' + esc(t.author) + '</strong> · ' + esc(t.createdAt) + ' · ' + (t.replyCount || 0) + ' replies</p>' +
+                  '<p class="admin-row__meta" style="margin-top:.2rem;font-style:italic">' + esc((t.body || '').slice(0, 140)) + (t.body && t.body.length > 140 ? '…' : '') + '</p>' +
+                '</div>' +
+                '<div class="admin-row__actions">' +
+                  '<a class="btn btn--ghost btn--sm" href="#/thread/' + esc(t.id) + '">View</a>' +
+                  '<button class="btn btn--danger btn--sm" data-action="delete-thread" data-id="' + esc(t.id) + '" data-title="' + esc(t.title) + '">Delete thread</button>' +
+                '</div>' +
+              '</div>';
+            }).join('') + '</div>';
+
+          setupThreadSearch();
+
+          el.querySelectorAll('[data-action="delete-thread"]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var id = btn.dataset.id;
+              var title = btn.dataset.title;
+              if (!confirm('Permanently delete thread "' + title + '" and all its replies?')) return;
+              btn.disabled = true;
+              btn.textContent = 'Deleting…';
+              DB.deleteThread(id).then(function () {
+                moderationStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fff;">' +
+                  '<div style="font-weight:bold;color:#f87171;font-size:.92rem;">🗑️ Thread Deleted</div>' +
+                  '<p style="margin:0;font-size:.88rem;color:var(--text);">“' + esc(title) + '” and its replies were deleted.</p>' +
+                '</div>';
+                loadThreads();
+              }).catch(function (err) {
+                moderationStatusMsg = '<div class="admin-notice form-error is-visible" style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;">' +
+                  '<span>Error deleting thread: ' + esc(err.message || err) + '</span>' +
+                  '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.2rem;">✕</button></div>';
+                loadThreads();
+              });
+            });
+          });
+        }
+
+        function setupThreadSearch() {
+          var input = document.getElementById('adminThreadSearch');
+          if (!input) return;
+          input.addEventListener('input', debounce(function () {
+            var needle = input.value.trim().toLowerCase();
+            DB.listThreads().then(function (all) {
+              var filtered = all.filter(function (t) {
+                return (t.title && t.title.toLowerCase().includes(needle)) ||
+                  (t.author && t.author.toLowerCase().includes(needle)) ||
+                  (t.category && t.category.toLowerCase().includes(needle)) ||
+                  (t.body && t.body.toLowerCase().includes(needle));
+              });
+              renderModerationPanel(filtered);
+            });
+          }));
+        }
+
+        function loadThreads() {
+          DB.listThreads().then(renderModerationPanel);
+        }
+        loadThreads();
+
+        // ==========================================
+        // 4. Users Panel
+        // ==========================================
         function renderUsersPanel(users) {
           var el = document.getElementById('adminPanel-users');
           if (!el) return;
-          if (!users.length) { el.innerHTML = emptyState('No users found.'); return; }
+          if (!users.length) {
+            el.innerHTML = '<div class="admin-search"><input id="adminUserSearch" placeholder="Filter by username or name…" /></div>' + emptyState('No users found.');
+            setupUserSearch();
+            return;
+          }
           el.innerHTML = '<div class="admin-search"><input id="adminUserSearch" placeholder="Filter by username or name…" /></div>' +
-            '<div id="userList">' + users.map(function (u) {
+            '<div id="userList" class="stack">' + users.map(function (u) {
               return '<div class="admin-row">' +
                 '<div class="admin-row__body">' +
                   '<h3>' + esc(u.displayName || u.username) + ' <span class="badge" style="vertical-align:middle">' + esc(u.role || 'Member') + '</span></h3>' +
                   '<p class="admin-row__meta">@' + esc(u.username) + ' · ' + esc(u.email || '') + ' · joined ' + esc(u.joinedAt) + '</p>' +
                 '</div>' +
                 '<div class="admin-row__actions">' +
-                  (u.role !== 'Admin' ? '<button class="btn btn--danger btn--sm" data-action="delete-user" data-id="' + esc(u.id) + '">Delete</button>' : '') +
+                  (u.role !== 'Admin' ? '<button class="btn btn--danger btn--sm" data-action="delete-user" data-id="' + esc(u.id) + '" data-username="' + esc(u.username) + '">Delete user</button>' : '') +
                 '</div>' +
               '</div>';
             }).join('') + '</div>';
-          document.getElementById('adminUserSearch').addEventListener('input', debounce(function () {
-            var needle = document.getElementById('adminUserSearch').value.trim().toLowerCase();
-            DB.listUsers({ query: needle }).then(function (filtered) { renderUsersPanel(filtered); });
-          }));
-          el.addEventListener('click', function (ev) {
-            var btn = ev.target.closest('[data-action="delete-user"]');
-            if (!btn) return;
-            if (confirm('Delete this user? This cannot be undone.')) {
-              DB.deleteUser(btn.dataset.id).then(function () {
-                DB.listUsers({}).then(renderUsersPanel);
-              });
-            }
-          });
-        }
-        DB.listUsers({}).then(renderUsersPanel);
 
-        // -- Moderation panel --
-        function renderModerationPanel(threads) {
-          var el = document.getElementById('adminPanel-moderation');
-          if (!el) return;
-          if (!threads.length) { el.innerHTML = emptyState('No threads found.'); return; }
-          el.innerHTML = threads.map(function (t) {
-            return '<div class="admin-row">' +
-              '<div class="admin-row__body">' +
-                '<h3><a href="#/thread/' + esc(t.id) + '" style="color:var(--accent-2)">' + esc(t.title) + '</a></h3>' +
-                '<p class="admin-row__meta">' + esc(t.category) + ' · by ' + esc(t.author) + ' · ' + esc(t.createdAt) + ' · ' + (t.replyCount || 0) + ' replies</p>' +
-                '<p class="admin-row__meta" style="margin-top:.2rem;font-style:italic">' + esc((t.body || '').slice(0, 120)) + (t.body && t.body.length > 120 ? '…' : '') + '</p>' +
-              '</div>' +
-              '<div class="admin-row__actions">' +
-                '<button class="btn btn--danger btn--sm" data-action="delete-thread" data-id="' + esc(t.id) + '">Delete thread</button>' +
-              '</div>' +
-            '</div>';
-          }).join('');
-          el.addEventListener('click', function (ev) {
-            var btn = ev.target.closest('[data-action="delete-thread"]');
-            if (!btn) return;
-            if (confirm('Delete this thread and all its replies?')) {
-              DB.deleteThread(btn.dataset.id).then(function () {
-                DB.listThreads().then(renderModerationPanel);
-              });
-            }
+          setupUserSearch();
+
+          el.querySelectorAll('[data-action="delete-user"]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var id = btn.dataset.id;
+              var username = btn.dataset.username;
+              if (confirm('Delete user @' + username + '? This cannot be undone.')) {
+                btn.disabled = true;
+                btn.textContent = 'Deleting…';
+                DB.deleteUser(id).then(function () {
+                  DB.listUsers({}).then(renderUsersPanel);
+                }).catch(function (err) {
+                  alert('Error deleting user: ' + (err.message || err));
+                  btn.disabled = false;
+                  btn.textContent = 'Delete user';
+                });
+              }
+            });
           });
         }
-        DB.listThreads().then(renderModerationPanel);
+
+        function setupUserSearch() {
+          var input = document.getElementById('adminUserSearch');
+          if (!input) return;
+          input.addEventListener('input', debounce(function () {
+            var needle = input.value.trim().toLowerCase();
+            DB.listUsers({ query: needle }).then(renderUsersPanel);
+          }));
+        }
+
+        DB.listUsers({}).then(renderUsersPanel);
       });
     }
   };
