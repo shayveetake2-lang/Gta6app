@@ -34,9 +34,10 @@
       </nav>
 
       <form class="search" role="search" id="globalSearch">
-        <input type="search" id="globalSearchInput" placeholder="Search accounts…" aria-label="Search accounts" autocomplete="off" />
+        <input type="search" id="globalSearchInput" placeholder="Search guides, achievements..." aria-label="Search guides, achievements" autocomplete="off" />
       </form>
 
+      <a class="profile-btn" href="#/profile/edit" aria-label="Edit your profile" title="Edit profile"><span aria-hidden="true">✎</span><span class="profile-btn__label">Profile</span></a>
       <button class="icon-btn" id="themeToggle" aria-label="Toggle color theme" title="Toggle theme">◐</button>
     </div>
   </header>
@@ -46,11 +47,11 @@
   <main id="main" class="container" tabindex="-1"></main>
 
   <nav class="tabbar" aria-label="Mobile">
-    <a href="#/" data-route-link="/"><span aria-hidden="true">⌂</span>Home</a>
-    <a href="#/walkthroughs" data-route-link="/walkthroughs"><span aria-hidden="true">▤</span>Guides</a>
-    <a href="#/achievements" data-route-link="/achievements"><span aria-hidden="true">★</span>Achievements</a>
-    <a href="#/forum" data-route-link="/forum"><span aria-hidden="true">💬</span>Forum</a>
-    <a href="#/accounts" data-route-link="/accounts"><span aria-hidden="true">👤</span>Accounts</a>
+    <a href="#/" data-route-link="/"><span class="tabbar__icon" aria-hidden="true">⌂</span>Home</a>
+    <a href="#/walkthroughs" data-route-link="/walkthroughs"><span class="tabbar__icon" aria-hidden="true">▤</span>Guides</a>
+    <a href="#/achievements" data-route-link="/achievements"><span class="tabbar__icon" aria-hidden="true">★</span>Achievements</a>
+    <a href="#/forum" data-route-link="/forum"><span class="tabbar__icon tabbar__icon--chat" aria-hidden="true"></span>Forum</a>
+    <a href="#/accounts" data-route-link="/accounts"><span class="tabbar__icon" aria-hidden="true">♙</span>Accounts</a>
   </nav>
 
   <footer class="footer">

@@ -38,6 +38,7 @@ function matchesUser(u, needle) {
 /* -------------------------------------------------------- local (fallback) */
 
 const LOCAL_KEY = 'gta6.db.v2';
+const LOCAL_PROFILE_KEY = 'gta6.profile.id';
 
 function loadLocal() {
   try {
@@ -67,6 +68,29 @@ const localBackend = {
   },
   async getProfile(id) {
     return clone(local.users.find((u) => u.id === id || u.username === id) || null);
+  },
+  async getCurrentProfile() {
+    let id = null;
+    try { id = localStorage.getItem(LOCAL_PROFILE_KEY); } catch { /* storage unavailable */ }
+    return clone(local.users.find((user) => user.id === id) || local.users[0] || null);
+  },
+  async updateProfile(input) {
+    const current = await this.getCurrentProfile();
+    if (!current) throw new Error('No local profile is available.');
+    const username = input.username.trim();
+    const usernameLower = username.toLowerCase();
+    if (local.users.some((user) => user.id !== current.id && user.usernameLower === usernameLower)) {
+      throw new Error('That username is already in use.');
+    }
+    Object.assign(current, {
+      username, usernameLower,
+      displayName: input.displayName.trim(),
+      bio: input.bio.trim(), location: input.location.trim()
+    });
+    local.users[local.users.findIndex((user) => user.id === current.id)] = current;
+    try { localStorage.setItem(LOCAL_PROFILE_KEY, current.id); } catch { /* storage unavailable */ }
+    saveLocal();
+    return clone(current);
   },
   async createUser({ username, displayName, bio, location }) {
     const usernameLower = username.toLowerCase();
@@ -195,6 +219,40 @@ function firestoreBackend(db) {
       const snap = await getDoc(doc(db, 'users', id));
       if (!snap.exists()) return null;
       return { id: snap.id, ...snap.data(), joinedAt: toDateString(snap.data().joinedAt) };
+    },
+
+    async getCurrentProfile() {
+      const user = getUser();
+      if (!user) throw new Error('Sign in is not ready. Please try again.');
+      const profile = await this.getProfile(user.uid);
+      return profile || {
+        id: user.uid,
+        username: 'user_' + user.uid.slice(0, 8),
+        displayName: 'New community member',
+        bio: '',
+        location: '',
+        role: 'Member',
+        joinedAt: today()
+      };
+    },
+
+    async updateProfile(input) {
+      const user = getUser();
+      if (!user) throw new Error('Sign in is not ready. Please try again.');
+      const profile = {
+        username: input.username.trim(),
+        usernameLower: input.username.trim().toLowerCase(),
+        displayName: input.displayName.trim(),
+        bio: input.bio.trim(), location: input.location.trim()
+      };
+      const profileRef = doc(db, 'users', user.uid);
+      const existing = await getDoc(profileRef);
+      if (existing.exists()) {
+        await updateDoc(profileRef, profile);
+      } else {
+        await setDoc(profileRef, { ...profile, role: 'Member', joinedAt: serverTimestamp() });
+      }
+      return { id: user.uid, ...profile, role: input.role || 'Member', joinedAt: input.joinedAt || today() };
     },
 
     async createUser({ username, displayName, bio, location }) {
@@ -352,6 +410,8 @@ export const dbReady = (async () => {
 export const DB = {
   listUsers: (opts) => backend.listUsers(opts),
   getProfile: (id) => backend.getProfile(id),
+  getCurrentProfile: () => backend.getCurrentProfile(),
+  updateProfile: (input) => backend.updateProfile(input),
   createUser: (input) => backend.createUser(input),
   listManualAchievements: () => backend.listManualAchievements(),
   createManualAchievement: (input) => backend.createManualAchievement(input),

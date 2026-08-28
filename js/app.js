@@ -124,7 +124,7 @@ import { isConfigured } from './firebase.js';
   }
 
   var Data = {};
-  ['listUsers', 'getProfile', 'listWalkthroughs', 'getWalkthrough', 'listThreads',
+  ['listUsers', 'getProfile', 'getCurrentProfile', 'updateProfile', 'listWalkthroughs', 'getWalkthrough', 'listThreads',
     'getThread', 'createThread', 'addReply', 'categories'].forEach(function (method) {
     Data[method] = function () {
       return DB[method].apply(DB, arguments).catch(function (err) {
@@ -367,6 +367,45 @@ import { isConfigured } from './firebase.js';
           (threads.length ? '<div class="stack">' + threads.map(threadRow).join('') + '</div>' : emptyState('No threads yet.')));
       });
     },
+
+      '/profile': function (id) {
+        if (id !== 'edit') return views['/']();
+        Data.getCurrentProfile().then(function (user) {
+          if (!user) return render(emptyState('No profile is available to edit.'));
+          render('' +
+            '<div class="section-head"><h2>Edit profile</h2><span class="card__meta">Your forum identity</span></div>' +
+            '<form class="profile-form stack" id="profileForm">' +
+              '<div class="field"><label for="profileUsername">Username</label><input id="profileUsername" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+" value="' + esc(user.username) + '" /><span class="field__hint">Letters, numbers and underscores only.</span></div>' +
+              '<div class="field"><label for="profileDisplayName">Display name</label><input id="profileDisplayName" required maxlength="60" value="' + esc(user.displayName || '') + '" /></div>' +
+              '<div class="field"><label for="profileBio">Bio</label><textarea id="profileBio" maxlength="400" placeholder="Tell the forum what you play and write about...">' + esc(user.bio || '') + '</textarea></div>' +
+              '<div class="field"><label for="profileLocation">Location</label><input id="profileLocation" maxlength="80" value="' + esc(user.location || '') + '" placeholder="Vice City, Leonida" /></div>' +
+              '<div class="toolbar"><button class="btn btn--primary" type="submit">Save profile</button><a class="btn btn--ghost" href="#/account/' + esc(user.id) + '">Cancel</a></div>' +
+              '<p class="empty profile-form__status" id="profileStatus" aria-live="polite" hidden></p>' +
+            '</form>');
+
+          document.getElementById('profileForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+            var status = document.getElementById('profileStatus');
+            var submit = event.target.querySelector('[type="submit"]');
+            submit.disabled = true;
+            Data.updateProfile({
+              username: document.getElementById('profileUsername').value,
+              displayName: document.getElementById('profileDisplayName').value,
+              bio: document.getElementById('profileBio').value,
+              location: document.getElementById('profileLocation').value
+            }).then(function (updated) {
+              status.hidden = false;
+              status.textContent = 'Profile saved.';
+              submit.disabled = false;
+              document.querySelector('.profile-btn__label').textContent = updated.displayName || updated.username;
+            }).catch(function (error) {
+              status.hidden = false;
+              status.textContent = error.message || 'Could not save your profile.';
+              submit.disabled = false;
+            });
+          });
+        });
+      },
 
     '/forum': function () {
       Promise.all([Data.listThreads(state.category), Data.categories()]).then(function (res) {

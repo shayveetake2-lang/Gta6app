@@ -40,7 +40,12 @@ service cloud.firestore {
 
       allow update: if isOwner(userId)
         && request.resource.data.diff(resource.data)
-             .affectedKeys().hasOnly(['displayName', 'bio', 'location'])
+             .affectedKeys().hasOnly(['username', 'usernameLower', 'displayName', 'bio', 'location'])
+        && request.resource.data.username is string
+        && request.resource.data.username.size() >= 3
+        && request.resource.data.username.size() <= 24
+        && request.resource.data.username.matches('^[a-zA-Z0-9_]+$')
+        && request.resource.data.usernameLower == request.resource.data.username.lower()
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() > 0
         && request.resource.data.displayName.size() <= 60
