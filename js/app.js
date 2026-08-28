@@ -90,18 +90,35 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
     var catClass = (n.category || 'official').toLowerCase().replace(/[^a-z0-9]/g, '-');
     var isAdmin = currentProfile && currentProfile.role === 'Admin';
     var isAuthor = currentProfile && n.authorUid && currentProfile.id === n.authorUid;
-    return '' +
-      '<article class="card card--news" data-news-id="' + esc(n.id) + '">' +
-        '<div class="news-card__body">' +
-          '<div class="news-card__header">' +
-            '<span class="badge badge--' + esc(catClass) + '">' + esc(n.category || 'News') + '</span>' +
-            '<span class="card__meta" style="font-size:.8rem">' + esc(n.createdAt) + '</span>' +
-          '</div>' +
-          '<h3 class="news-card__title">' + (n.cover ? '<span style="margin-right:.4rem;">' + esc(n.cover) + '</span>' : '') + esc(n.title) + '</h3>' +
+
+    var bodyContent = '';
+    if (n.isSpoiler) {
+      bodyContent = '<div class="spoiler-wrapper">' +
+        '<button class="btn btn--sm btn--primary spoiler-btn" onclick="this.parentElement.classList.add(\'revealed\')">⚠️ Show Spoiler Content</button>' +
+        '<div class="spoiler-content">' +
           (n.summary ? '<p class="news-card__summary">' + esc(n.summary) + '</p>' : '') +
           (n.body ? '<div class="news-card__content">' + esc(n.body) + '</div>' : '') +
+        '</div>' +
+      '</div>';
+    } else {
+      bodyContent = (n.summary ? '<p class="news-card__summary">' + esc(n.summary) + '</p>' : '') +
+        (n.body ? '<div class="news-card__content">' + esc(n.body) + '</div>' : '');
+    }
+
+    return '' +
+      '<article class="card card--news' + (n.category === 'Rumour' ? ' card--rumour' : '') + '" data-news-id="' + esc(n.id) + '">' +
+        '<div class="news-card__body">' +
+          '<div class="news-card__header">' +
+            '<div style="display:flex;gap:.35rem;align-items:center;">' +
+              '<span class="badge badge--' + esc(catClass) + '">' + esc(n.category || 'News') + '</span>' +
+              (n.isSpoiler ? '<span class="badge badge--spoiler" style="background:#ff315d;color:#fff;">[SPOILER]</span>' : '') +
+            '</div>' +
+            '<span class="card__meta" style="font-size:.8rem">' + esc(n.publishedAt || n.createdAt || '') + '</span>' +
+          '</div>' +
+          '<h3 class="news-card__title">' + (n.cover ? '<span style="margin-right:.4rem;">' + esc(n.cover) + '</span>' : '') + esc(n.title) + '</h3>' +
+          bodyContent +
           '<div class="news-card__footer">' +
-            '<span>Source: <strong>' + esc(n.source || 'Community') + '</strong> · By @' + esc(n.author || 'guest') + '</span>' +
+            '<span>Source: <strong>' + esc(n.source || 'Community') + '</strong> (' + esc(n.sourceType || 'Community') + ') · By @' + esc(n.author || 'guest') + '</span>' +
             (isAdmin || isAuthor ? '<button class="btn btn--danger btn--sm" data-action="delete-news" data-id="' + esc(n.id) + '" data-title="' + esc(n.title) + '" style="padding:.2rem .55rem;min-height:26px;font-size:.75rem;">Delete</button>' : '') +
           '</div>' +
         '</div>' +
@@ -111,7 +128,6 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
   function walkthroughCard(w) {
     return '' +
       '<a class="card" href="#/walkthroughs/' + esc(w.id) + '">' +
-        '<div class="card__media" aria-hidden="true">' + esc(w.cover) + '</div>' +
         '<div class="card__body">' +
           '<span class="badge badge--' + esc(w.difficulty) + '">' + esc(w.difficulty) + '</span>' +
           '<h3 class="card__title">' + esc(w.title) + '</h3>' +
@@ -799,6 +815,11 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
                   '<option value="📰">📰 News</option><option value="🌴">🌴 Vice City</option><option value="🎮">🎮 Gameplay</option><option value="🎯">🎯 Mission/Heist</option><option value="⚡">⚡ Tech/Performance</option><option value="🗺️">🗺️ Map</option><option value="🚗">🚗 Vehicles</option><option value="📻">📻 Soundtrack</option>' +
                 '</select></div>' +
               '</div>' +
+              '<div style="display:flex;gap:1rem;flex-wrap:wrap;">' +
+                '<div class="field" style="flex:1;min-width:140px;"><label for="newsSourceType">Source Type</label><input id="newsSourceType" value="Community" placeholder="e.g. Official Rockstar Games" /></div>' +
+                '<div class="field" style="flex:1;min-width:140px;"><label for="newsPublishedAt">Published Date</label><input type="date" id="newsPublishedAt" /></div>' +
+              '</div>' +
+              '<div class="field" style="flex-direction:row;align-items:center;gap:.5rem;"><input type="checkbox" id="newsIsSpoiler" /> <label for="newsIsSpoiler" style="margin:0;cursor:pointer;font-weight:600;">Contains spoilers</label></div>' +
               '<div class="field"><label for="newsSource">Source / Citation</label><input id="newsSource" placeholder="e.g. Rockstar Games, Take-Two Investor Call, Newswire" /></div>' +
               '<div class="field"><label for="newsSummary">Summary / Lead</label><textarea id="newsSummary" required maxlength="400" rows="2" placeholder="Brief 1-2 sentence overview of the news…"></textarea></div>' +
               '<div class="field"><label for="newsBody">Article Content & Details</label><textarea id="newsBody" required rows="6" maxlength="8000" placeholder="Write full details, breakdown points, timestamps, quotes, or sections here…"></textarea></div>' +
@@ -819,11 +840,41 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
         Data.listNews({ query: state.newsQuery || '', category: state.newsCategory || 'all' }).then(function (items) {
           if (!results) return;
           count.textContent = '(' + items.length + ')';
+
+          var bannerHtml = '';
+          if (state.newsCategory === 'Rumour') {
+            bannerHtml += '<div class="news-banner news-banner--rumour">' +
+              '<strong>⚠️ Rumour Notice:</strong> Posts below contain fan theories, predictions, and unverified community claims. They are not confirmed by Rockstar Games. Do not make purchasing decisions based on this content.' +
+              '</div>';
+          }
+          bannerHtml += '<div class="news-banner news-banner--fact-check">' +
+            '<h4>Know the difference</h4>' +
+            '<p><strong>Official:</strong> Confirmed by Rockstar Games.</p>' +
+            '<p><strong>Gameplay:</strong> An observation based on official footage. It is not necessarily a confirmed feature.</p>' +
+            '<p><strong>Rumour:</strong> An unverified claim, prediction, or community theory.</p>' +
+            '<p><strong>Community:</strong> A player discussion, poll, screenshot, or guide request.</p>' +
+            '<p class="news-banner__footer">If Rockstar has not announced it, we do not label it as confirmed.</p>' +
+            '</div>';
+
           if (!items.length) {
-            results.innerHTML = emptyState(state.newsQuery ? 'No news articles found matching "' + state.newsQuery + '"' : 'No news articles in this category yet.');
+            var emptyMsg = 'No news articles in this category yet.';
+            if (state.newsCategory === 'Official') {
+              emptyMsg = 'No newer official GTA VI posts are available right now. Explore trailers, official media, character profiles, and the Leonida location guide while you wait.';
+            } else if (state.newsCategory === 'Gameplay') {
+              emptyMsg = 'No new gameplay analysis has been published. Revisit the official Extended Look or browse the trailer archive.';
+            } else if (state.newsCategory === 'Rumour') {
+              emptyMsg = 'No community rumours are currently trending. Check back later, or start a theory thread about Leonida, Jason, Lucia, or the supporting cast.';
+            } else if (state.newsCategory === 'Trailer') {
+              emptyMsg = 'No additional official GTA VI media has been added. Browse Rockstar’s existing trailer, screenshot, and artwork collection.';
+            } else if (state.newsCategory === 'Community') {
+              emptyMsg = 'No community posts yet. Be the first to start a conversation. Ask a question, create a poll, submit a theory, or request a launch-day guide.';
+            } else if (state.newsQuery) {
+              emptyMsg = 'No news articles found matching "' + state.newsQuery + '"';
+            }
+            results.innerHTML = bannerHtml + emptyState(emptyMsg);
             return;
           }
-          results.innerHTML = '<div class="grid">' + items.map(newsCard).join('') + '</div>';
+          results.innerHTML = bannerHtml + '<div class="grid">' + items.map(newsCard).join('') + '</div>';
 
           // Hook up delete buttons on news cards
           results.querySelectorAll('[data-action="delete-news"]').forEach(function (btn) {
@@ -871,6 +922,10 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
         createBtn.addEventListener('click', function () {
           newsModal.hidden = false;
           document.getElementById('newsError').classList.remove('is-visible');
+          var dateInput = document.getElementById('newsPublishedAt');
+          if (dateInput) {
+            dateInput.value = new Date().toISOString().split('T')[0];
+          }
         });
         document.getElementById('newsModalClose').addEventListener('click', function () { newsModal.hidden = true; });
         document.getElementById('newsModalCancel').addEventListener('click', function () { newsModal.hidden = true; });
@@ -889,7 +944,10 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
             cover: document.getElementById('newsCover').value,
             source: document.getElementById('newsSource').value.trim(),
             summary: document.getElementById('newsSummary').value.trim(),
-            body: document.getElementById('newsBody').value.trim()
+            body: document.getElementById('newsBody').value.trim(),
+            sourceType: document.getElementById('newsSourceType').value.trim(),
+            publishedAt: document.getElementById('newsPublishedAt').value || new Date().toISOString().split('T')[0],
+            isSpoiler: document.getElementById('newsIsSpoiler').checked
           }).then(function () {
             newsModal.hidden = true;
             e.target.reset();
@@ -1031,7 +1089,6 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
           html += '<div class="search-section"><h3>Walkthroughs (' + res.walkthroughs.length + ')</h3>' +
             res.walkthroughs.map(function (w) {
               return '<a class="search-hit" href="#/walkthroughs/' + esc(w.id) + '">' +
-                '<span class="search-hit__icon">' + esc(w.cover || '🎮') + '</span>' +
                 '<div class="search-hit__body">' +
                   '<p class="search-hit__title">' + esc(w.title) + '</p>' +
                   '<p class="search-hit__meta">' + esc(w.difficulty) + ' · by ' + esc(w.author) + ' · ' + esc(w.updatedAt) + '</p>' +

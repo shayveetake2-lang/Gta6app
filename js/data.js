@@ -233,7 +233,7 @@ const localBackend = {
   async logOut() {
     try { localStorage.removeItem(LOCAL_PROFILE_KEY); } catch { /* storage unavailable */ }
   },
-  async createWalkthrough({ title, game, difficulty, duration, cover, summary, tags, steps }) {
+  async createWalkthrough({ title, game, difficulty, duration, summary, tags, steps }) {
     const user = await this.getCurrentProfile();
     const wt = {
       id: uid('pwt'),
@@ -246,7 +246,6 @@ const localBackend = {
       likes: 0,
       createdAt: today(),
       updatedAt: today(),
-      cover: cover || '🎮',
       summary: summary || '',
       tags: Array.isArray(tags) ? tags : [],
       steps: Array.isArray(steps) ? steps : []
@@ -334,7 +333,7 @@ const localBackend = {
   async getNews(id) {
     return clone(localNews().find((n) => n.id === id) || null);
   },
-  async createNews({ title, category, cover, source, summary, body }) {
+  async createNews({ title, category, cover, source, summary, body, sourceType, publishedAt, isSpoiler }) {
     const user = await this.getCurrentProfile();
     const item = {
       id: uid('news'),
@@ -344,6 +343,9 @@ const localBackend = {
       source: (source || 'Community').trim(),
       summary: (summary || '').trim(),
       body: (body || '').trim(),
+      sourceType: sourceType || 'Community',
+      publishedAt: publishedAt || today(),
+      isSpoiler: !!isSpoiler,
       author: user ? user.username : 'guest',
       authorUid: user ? user.id : null,
       createdAt: today()
@@ -632,7 +634,7 @@ function firestoreBackend(db) {
       await authSignOut();
     },
 
-    async createWalkthrough({ title, game, difficulty, duration, cover, summary, tags, steps }) {
+    async createWalkthrough({ title, game, difficulty, duration, summary, tags, steps }) {
       const user = getUser();
       if (!user || user.isAnonymous) throw new Error('You must be signed in to create a walkthrough.');
       const profile = await this.getCurrentProfile();
@@ -646,7 +648,6 @@ function firestoreBackend(db) {
         likes: 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        cover: cover || '🎮',
         summary: summary || '',
         tags: Array.isArray(tags) ? tags : [],
         steps: Array.isArray(steps) ? steps : []
@@ -677,7 +678,6 @@ function firestoreBackend(db) {
         author: data.author || 'Contributor',
         authorUid: data.authorUid || null,
         likes: data.likes || 0,
-        cover: data.cover || '🎮',
         summary: data.summary || '',
         tags: Array.isArray(data.tags) ? data.tags : [],
         steps: Array.isArray(data.steps) ? data.steps : [],
@@ -721,25 +721,37 @@ function firestoreBackend(db) {
       const snap = await getDocs(query(newsRef, orderBy('createdAt', 'desc'), limit(100)));
       const needle = q.trim().toLowerCase();
       return snap.docs
-        .map((d) => ({
-          id: d.id,
-          ...d.data(),
-          createdAt: toDateString(d.data().createdAt)
-        }))
+        .map((d) => {
+          const data = d.data();
+          const createdStr = toDateString(data.createdAt);
+          return {
+            id: d.id,
+            ...data,
+            createdAt: createdStr,
+            publishedAt: data.publishedAt || createdStr,
+            sourceType: data.sourceType || 'Community',
+            isSpoiler: !!data.isSpoiler
+          };
+        })
         .filter((n) => (category === 'all' || (n.category || '').toLowerCase() === category.toLowerCase()) && matchesNews(n, needle));
     },
 
     async getNews(id) {
       const snap = await getDoc(doc(db, 'news', id));
       if (!snap.exists()) return null;
+      const data = snap.data();
+      const createdStr = toDateString(data.createdAt);
       return {
         id: snap.id,
-        ...snap.data(),
-        createdAt: toDateString(snap.data().createdAt)
+        ...data,
+        createdAt: createdStr,
+        publishedAt: data.publishedAt || createdStr,
+        sourceType: data.sourceType || 'Community',
+        isSpoiler: !!data.isSpoiler
       };
     },
 
-    async createNews({ title, category, cover, source, summary, body }) {
+    async createNews({ title, category, cover, source, summary, body, sourceType, publishedAt, isSpoiler }) {
       const user = getUser();
       const profile = await this.getCurrentProfile();
       const author = profile ? profile.username : displayName();
@@ -750,12 +762,15 @@ function firestoreBackend(db) {
         source: (source || 'Community').trim(),
         summary: (summary || '').trim(),
         body: (body || '').trim(),
+        sourceType: sourceType || 'Community',
+        publishedAt: publishedAt || today(),
+        isSpoiler: !!isSpoiler,
         author: author,
         authorUid: user ? user.uid : null,
         createdAt: serverTimestamp()
       };
       const ref = await addDoc(newsRef, item);
-      return { id: ref.id, ...item, createdAt: today() };
+      return { id: ref.id, ...item, createdAt: today(), publishedAt: item.publishedAt };
     },
 
     async deleteNews(id) {
