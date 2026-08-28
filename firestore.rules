@@ -171,15 +171,28 @@ service cloud.firestore {
       allow read: if true;
 
       allow create: if isEmailUser()
+        && (isOwner(request.resource.data.authorUid) || isAdmin())
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
         && request.resource.data.title.size() <= 160
         && request.resource.data.body is string
         && request.resource.data.body.size() > 0
         && request.resource.data.body.size() <= 8000
+        && request.resource.data.get('summary', '').size() <= 600
         && request.resource.data.createdAt == request.time;
 
-      allow update: if isAdmin() || (signedIn() && resource.data.authorUid == request.auth.uid);
+      allow update: if isAdmin() || (
+        signedIn()
+        && resource.data.authorUid == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 160
+        && request.resource.data.body is string
+        && request.resource.data.body.size() > 0
+        && request.resource.data.body.size() <= 8000
+        && request.resource.data.get('summary', '').size() <= 600
+        && request.resource.data.authorUid == resource.data.authorUid
+      );
 
       allow delete: if isAdmin() || (signedIn() && resource.data.authorUid == request.auth.uid);
     }
