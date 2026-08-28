@@ -1,4 +1,4 @@
-import { DB, dbReady } from './data.js?v=9';
+import { DB, dbReady } from './data.js?v=10';
 import { isConfigured, signInAdmin, signOutUser } from './firebase.js';
 
 (function () {
@@ -135,7 +135,7 @@ import { isConfigured, signInAdmin, signOutUser } from './firebase.js';
 
   var Data = {};
   ['listUsers', 'getProfile', 'getCurrentProfile', 'updateProfile', 'listWalkthroughs', 'getWalkthrough', 'listThreads',
-    'getThread', 'createThread', 'createWalkthrough', 'listPendingWalkthroughs', 'approveWalkthrough', 'addReply', 'categories', 'listContent'].forEach(function (method) {
+    'getThread', 'createThread', 'createWalkthrough', 'listPendingWalkthroughs', 'approveWalkthrough', 'deleteWalkthrough', 'addReply', 'categories', 'listContent'].forEach(function (method) {
     Data[method] = function () {
       return DB[method].apply(DB, arguments).catch(function (err) {
         console.error('[db] ' + method + ' failed:', err);
@@ -414,12 +414,19 @@ import { isConfigured, signInAdmin, signOutUser } from './firebase.js';
         Data.listPendingWalkthroughs().then(function (items) {
           if (!items.length) return render('<div class="section-head"><h2>Walkthrough approvals</h2></div>' + emptyState('No walkthroughs are waiting for approval.'));
           render('<div class="section-head"><h2>Walkthrough approvals</h2><span class="card__meta">' + items.length + ' pending</span></div><div class="stack">' + items.map(function (item) {
-            return '<article class="thread"><div class="thread__body"><h3 class="thread__title">' + esc(item.title) + '</h3><p class="thread__meta">' + esc(item.summary) + ' · by ' + esc(item.author) + '</p></div><button class="btn btn--primary" data-approve="' + esc(item.id) + '" type="button">Approve</button></article>';
+            return '<article class="thread"><div class="thread__body"><h3 class="thread__title">' + esc(item.title) + '</h3><p class="thread__meta">' + esc(item.summary) + ' · by ' + esc(item.author) + '</p></div><div class="toolbar"><button class="btn btn--primary" data-approve="' + esc(item.id) + '" type="button">Approve</button><button class="btn btn--ghost" data-delete-walkthrough="' + esc(item.id) + '" type="button">Delete</button></div></article>';
           }).join('') + '</div>');
           main.querySelectorAll('[data-approve]').forEach(function (button) {
             button.addEventListener('click', function () {
               button.disabled = true;
               Data.approveWalkthrough(button.dataset.approve).then(function () { views['/admin'](); });
+            });
+          });
+          main.querySelectorAll('[data-delete-walkthrough]').forEach(function (button) {
+            button.addEventListener('click', function () {
+              if (!window.confirm('Delete this walkthrough permanently?')) return;
+              button.disabled = true;
+              Data.deleteWalkthrough(button.dataset.deleteWalkthrough).then(function () { views['/admin'](); });
             });
           });
         });

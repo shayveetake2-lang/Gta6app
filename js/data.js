@@ -6,7 +6,7 @@
  */
 import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, query, where,
-  orderBy, limit, startAt, endAt, serverTimestamp, increment, updateDoc
+  orderBy, limit, startAt, endAt, serverTimestamp, increment, updateDoc, deleteDoc
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { ready, getDb, getUser, displayName } from './firebase.js';
 import { SEED, CATEGORIES, TROPHIES } from './seed.js';
@@ -162,6 +162,13 @@ const localBackend = {
     const walkthrough = local.walkthroughs.find((w) => w.id === id);
     if (!walkthrough) throw new Error('Walkthrough not found');
     walkthrough.approved = true;
+    saveLocal();
+    return clone(walkthrough);
+  },
+  async deleteWalkthrough(id) {
+    const index = local.walkthroughs.findIndex((w) => w.id === id);
+    if (index === -1) throw new Error('Walkthrough not found');
+    const [walkthrough] = local.walkthroughs.splice(index, 1);
     saveLocal();
     return clone(walkthrough);
   },
@@ -371,6 +378,10 @@ function firestoreBackend(db) {
       await updateDoc(doc(db, 'walkthroughs', id), { approved: true });
       return this.getWalkthrough(id);
     },
+    async deleteWalkthrough(id) {
+      await deleteDoc(doc(db, 'walkthroughs', id));
+      return { id };
+    },
 
     async listThreads(category) {
       const filters = !category || category === 'all' ? [] : [where('category', '==', category)];
@@ -467,6 +478,7 @@ export const DB = {
   createWalkthrough: (input) => backend.createWalkthrough(input),
   listPendingWalkthroughs: () => backend.listPendingWalkthroughs(),
   approveWalkthrough: (id) => backend.approveWalkthrough(id),
+  deleteWalkthrough: (id) => backend.deleteWalkthrough(id),
   getWalkthrough: (id) => backend.getWalkthrough(id),
   listThreads: (category) => backend.listThreads(category),
   getThread: (id) => backend.getThread(id),
