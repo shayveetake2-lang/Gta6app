@@ -161,6 +161,27 @@ export const SEED = {
       body: 'New here? Say hello and tell us what you are playing.',
       replies: []
     }
+  ],
+  pendingWalkthroughs: [
+    {
+      id: 'pwt-seed-1',
+      title: 'Secret Vehicle Spawns in Vice Port',
+      game: 'GTA 6',
+      difficulty: 'medium',
+      duration: 15,
+      author: 'pixelpush',
+      authorUid: 'pixelpush',
+      likes: 0,
+      updatedAt: '2026-08-20',
+      createdAt: '2026-08-20',
+      cover: '🚗',
+      summary: 'Detailed coordinate points and times for rare muscle cars in the industrial shipping docks.',
+      tags: ['vehicles', 'secrets', 'vice-port'],
+      steps: [
+        { title: 'Head to the East Cranes', content: 'Arrive at the shipping yard between 02:00 and 04:00 in-game time.' },
+        { title: 'Check Warehouse 4B', content: 'The shutter door has a small opening on the south side where the vehicle spawns.' }
+      ]
+    }
   ]
 };
 

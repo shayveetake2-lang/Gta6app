@@ -61,6 +61,11 @@ function localManualAchievements() {
   return local.manualAchievements;
 }
 
+function localPendingWalkthroughs() {
+  if (!Array.isArray(local.pendingWalkthroughs)) local.pendingWalkthroughs = [];
+  return local.pendingWalkthroughs;
+}
+
 const localBackend = {
   async listUsers({ query: q = '' } = {}) {
     const needle = q.trim().toLowerCase();
@@ -207,32 +212,50 @@ const localBackend = {
   async createWalkthrough({ title, game, difficulty, duration, cover, summary, tags, steps }) {
     const user = await this.getCurrentProfile();
     const wt = {
-      id: uid('wt'),
-      title, game,
+      id: uid('pwt'),
+      title: title.trim(),
+      game: game || 'GTA 6',
       difficulty: difficulty || 'medium',
       duration: Number(duration) || 30,
       author: user ? user.username : 'guest',
+      authorUid: user ? user.id : null,
       likes: 0,
+      createdAt: today(),
       updatedAt: today(),
       cover: cover || '🎮',
       summary: summary || '',
       tags: Array.isArray(tags) ? tags : [],
-      steps: Array.isArray(steps) ? steps : [],
-      approved: false
+      steps: Array.isArray(steps) ? steps : []
     };
-    local.walkthroughs.unshift(wt);
+    localPendingWalkthroughs().unshift(wt);
     saveLocal();
     return clone(wt);
   },
   async listPendingWalkthroughs() {
-    return clone(local.walkthroughs.filter((w) => !w.approved));
+    return clone(localPendingWalkthroughs());
   },
   async approveWalkthrough(id) {
-    const wt = local.walkthroughs.find((w) => w.id === id);
-    if (!wt) throw new Error('Walkthrough not found.');
-    wt.approved = true;
+    const pendingList = localPendingWalkthroughs();
+    const idx = pendingList.findIndex((w) => w.id === id);
+    if (idx === -1) throw new Error('Pending walkthrough not found.');
+    const [pending] = pendingList.splice(idx, 1);
+    const approved = {
+      ...pending,
+      id: uid('wt'),
+      approved: true,
+      approvedAt: today(),
+      updatedAt: today()
+    };
+    local.walkthroughs.unshift(approved);
     saveLocal();
-    return clone(wt);
+    return clone(approved);
+  },
+  async deletePendingWalkthrough(id) {
+    const pendingList = localPendingWalkthroughs();
+    const idx = pendingList.findIndex((w) => w.id === id);
+    if (idx === -1) throw new Error('Pending walkthrough not found.');
+    pendingList.splice(idx, 1);
+    saveLocal();
   },
   async deleteWalkthrough(id) {
     const idx = local.walkthroughs.findIndex((w) => w.id === id);
@@ -284,6 +307,7 @@ const localBackend = {
 function firestoreBackend(db) {
   const threadsRef = collection(db, 'threads');
   const walkthroughsRef = collection(db, 'walkthroughs');
+  const pendingWalkthroughsRef = collection(db, 'pendingWalkthroughs');
   const usersRef = collection(db, 'users');
 
   return {
@@ -524,31 +548,63 @@ function firestoreBackend(db) {
       const user = getUser();
       if (!user || user.isAnonymous) throw new Error('You must be signed in to create a walkthrough.');
       const profile = await this.getCurrentProfile();
-      const ref = await addDoc(walkthroughsRef, {
-        title,
+      const ref = await addDoc(pendingWalkthroughsRef, {
+        title: title.trim(),
         game: game || 'GTA 6',
         difficulty: difficulty || 'medium',
         duration: Number(duration) || 30,
         author: profile ? profile.username : displayName(),
         authorUid: user.uid,
         likes: 0,
+        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         cover: cover || '🎮',
         summary: summary || '',
         tags: Array.isArray(tags) ? tags : [],
-        steps: Array.isArray(steps) ? steps : [],
-        approved: false
+        steps: Array.isArray(steps) ? steps : []
       });
-      return { id: ref.id, title, game, difficulty, author: profile ? profile.username : displayName(), approved: false, updatedAt: today() };
+      return { id: ref.id, title, game, difficulty, author: profile ? profile.username : displayName(), updatedAt: today() };
     },
 
     async listPendingWalkthroughs() {
-      const snap = await getDocs(query(walkthroughsRef, where('approved', '==', false), orderBy('updatedAt', 'desc'), limit(100)));
-      return snap.docs.map((d) => ({ id: d.id, ...d.data(), updatedAt: toDateString(d.data().updatedAt) }));
+      const snap = await getDocs(query(pendingWalkthroughsRef, orderBy('createdAt', 'desc'), limit(100)));
+      return snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        createdAt: toDateString(d.data().createdAt),
+        updatedAt: toDateString(d.data().updatedAt)
+      }));
     },
 
     async approveWalkthrough(id) {
-      await updateDoc(doc(db, 'walkthroughs', id), { approved: true });
+      const pendingDocRef = doc(db, 'pendingWalkthroughs', id);
+      const pendingSnap = await getDoc(pendingDocRef);
+      if (!pendingSnap.exists()) throw new Error('Pending walkthrough not found.');
+      const data = pendingSnap.data();
+      const published = {
+        title: data.title || '',
+        game: data.game || 'GTA 6',
+        difficulty: data.difficulty || 'medium',
+        duration: Number(data.duration) || 30,
+        author: data.author || 'Contributor',
+        authorUid: data.authorUid || null,
+        likes: data.likes || 0,
+        cover: data.cover || '🎮',
+        summary: data.summary || '',
+        tags: Array.isArray(data.tags) ? data.tags : [],
+        steps: Array.isArray(data.steps) ? data.steps : [],
+        approved: true,
+        approvedAt: serverTimestamp(),
+        createdAt: data.createdAt || serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+      const ref = await addDoc(walkthroughsRef, published);
+      await deleteDoc(pendingDocRef);
+      return { id: ref.id, ...published, approvedAt: today(), updatedAt: today() };
+    },
+
+    async deletePendingWalkthrough(id) {
+      await deleteDoc(doc(db, 'pendingWalkthroughs', id));
     },
 
     async deleteWalkthrough(id) {
@@ -579,7 +635,7 @@ function firestoreBackend(db) {
       const needle = q.trim().toLowerCase();
       if (!needle) return { walkthroughs: [], threads: [], users: [] };
       const [wtSnap, thSnap, usersSnap] = await Promise.all([
-        getDocs(query(walkthroughsRef, where('approved', '==', true), orderBy('updatedAt', 'desc'), limit(100))),
+        getDocs(query(walkthroughsRef, orderBy('updatedAt', 'desc'), limit(100))),
         getDocs(query(threadsRef, orderBy('createdAt', 'desc'), limit(200))),
         getDocs(query(usersRef, orderBy('usernameLower'), limit(200)))
       ]);
@@ -624,14 +680,11 @@ export const DB = {
   createManualAchievement: (input) => backend.createManualAchievement(input),
   setManualAchievementCompleted: (id, unlocked) => backend.setManualAchievementCompleted(id, unlocked),
   listWalkthroughs: (opts) => backend.listWalkthroughs(opts),
-  createWalkthrough: (input) => backend.createWalkthrough(input),
-  listPendingWalkthroughs: () => backend.listPendingWalkthroughs(),
-  approveWalkthrough: (id) => backend.approveWalkthrough(id),
-  deleteWalkthrough: (id) => backend.deleteWalkthrough(id),
   getWalkthrough: (id) => backend.getWalkthrough(id),
   createWalkthrough: (input) => backend.createWalkthrough(input),
   listPendingWalkthroughs: () => backend.listPendingWalkthroughs(),
   approveWalkthrough: (id) => backend.approveWalkthrough(id),
+  deletePendingWalkthrough: (id) => backend.deletePendingWalkthrough ? backend.deletePendingWalkthrough(id) : backend.deleteWalkthrough(id),
   deleteWalkthrough: (id) => backend.deleteWalkthrough(id),
   listThreads: (category) => backend.listThreads(category),
   getThread: (id) => backend.getThread(id),

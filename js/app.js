@@ -165,7 +165,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
 
   var Data = {};
   ['listUsers', 'getProfile', 'getCurrentProfile', 'updateProfile', 'listWalkthroughs', 'getWalkthrough', 'listThreads',
-    'getThread', 'createThread', 'createWalkthrough', 'listPendingWalkthroughs', 'approveWalkthrough', 'deleteWalkthrough', 'addReply', 'categories', 'listContent'].forEach(function (method) {
+    'getThread', 'createThread', 'createWalkthrough', 'listPendingWalkthroughs', 'approveWalkthrough', 'deletePendingWalkthrough', 'deleteWalkthrough', 'addReply', 'categories', 'listContent'].forEach(function (method) {
     Data[method] = function () {
       return DB[method].apply(DB, arguments).catch(function (err) {
         console.error('[db] ' + method + ' failed:', err);
@@ -388,7 +388,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
             e.target.reset();
             btn.disabled = false;
             btn.textContent = 'Submit for review';
-            alert('Walkthrough submitted! It will appear after admin review.');
+            alert('Walkthrough submitted! It has been saved temporarily to Pending Walkthroughs and will be published once an admin approves it.');
           }).catch(function (err) {
             errEl.textContent = err.message || 'Could not submit.';
             errEl.classList.add('is-visible');
@@ -759,33 +759,80 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
         });
 
         // -- Walkthroughs panel --
+        var pendingStatusMsg = '';
+
         function loadPending() {
           DB.listPendingWalkthroughs().then(function (items) {
             var el = document.getElementById('adminPanel-walkthroughs');
             if (!el) return;
-            if (!items.length) { el.innerHTML = emptyState('No pending walkthroughs.'); return; }
-            el.innerHTML = items.map(function (w) {
-              return '<div class="admin-row" data-wt-id="' + esc(w.id) + '">' +
-                '<div class="admin-row__body">' +
-                  '<h3>' + esc(w.title) + '</h3>' +
-                  '<p class="admin-row__meta">by ' + esc(w.author) + ' · ' + esc(w.difficulty) + ' · submitted ' + esc(w.updatedAt) + '</p>' +
-                  '<p class="admin-row__meta" style="margin-top:.3rem">' + esc(w.summary || '') + '</p>' +
-                '</div>' +
-                '<div class="admin-row__actions">' +
-                  '<button class="btn btn--approve btn--sm" data-action="approve" data-id="' + esc(w.id) + '">Approve</button>' +
-                  '<button class="btn btn--danger btn--sm" data-action="delete-wt" data-id="' + esc(w.id) + '">Delete</button>' +
-                '</div>' +
-              '</div>';
-            }).join('');
-            el.addEventListener('click', function (ev) {
-              var btn = ev.target.closest('[data-action]');
-              if (!btn) return;
-              var id = btn.dataset.id;
-              if (btn.dataset.action === 'approve') {
-                DB.approveWalkthrough(id).then(loadPending);
-              } else if (btn.dataset.action === 'delete-wt') {
-                if (confirm('Delete this walkthrough?')) DB.deleteWalkthrough(id).then(loadPending);
-              }
+            var alertHtml = pendingStatusMsg ? pendingStatusMsg : '';
+            if (!items.length) {
+              el.innerHTML = alertHtml + emptyState('No pending walkthroughs in the database.');
+              return;
+            }
+            el.innerHTML = alertHtml +
+              '<div class="section-meta" style="margin-bottom:1rem;color:var(--muted);font-size:.9rem;">Showing ' + items.length + ' pending submission' + (items.length === 1 ? '' : 's') + ' waiting for admin review:</div>' +
+              '<div class="stack">' + items.map(function (w) {
+                var stepsCount = (w.steps && w.steps.length) || 0;
+                var stepsList = (w.steps || []).map(function (s, i) {
+                  return '<div style="margin-top:.4rem;padding-left:.8rem;border-left:2px solid var(--accent);">' +
+                    '<strong>Step ' + (i + 1) + (s.title ? ': ' + esc(s.title) : '') + '</strong>' +
+                    '<div style="font-size:.85rem;color:var(--muted);white-space:pre-wrap;">' + esc(s.content || '') + '</div>' +
+                  '</div>';
+                }).join('');
+
+                return '<div class="admin-row" data-wt-id="' + esc(w.id) + '">' +
+                  '<div class="admin-row__body">' +
+                    '<h3>' + esc(w.title) + '</h3>' +
+                    '<p class="admin-row__meta">Submitted by <strong>@' + esc(w.author) + '</strong> · ' + esc(w.difficulty) + ' · ' + esc(w.duration) + ' min · ' + esc(w.createdAt || w.updatedAt) + '</p>' +
+                    '<p class="admin-row__meta" style="margin-top:.3rem">' + esc(w.summary || '') + '</p>' +
+                    (stepsCount ? '<details style="margin-top:.6rem;cursor:pointer;"><summary style="font-size:.84rem;color:var(--accent);font-weight:600;">View ' + stepsCount + ' Step' + (stepsCount === 1 ? '' : 's') + '</summary><div style="margin-top:.5rem;">' + stepsList + '</div></details>' : '') +
+                  '</div>' +
+                  '<div class="admin-row__actions">' +
+                    '<button class="btn btn--approve btn--sm" data-action="approve" data-id="' + esc(w.id) + '" data-title="' + esc(w.title) + '">Approve & Publish</button>' +
+                    '<button class="btn btn--danger btn--sm" data-action="delete-wt" data-id="' + esc(w.id) + '" data-title="' + esc(w.title) + '">Delete</button>' +
+                  '</div>' +
+                '</div>';
+              }).join('') + '</div>';
+
+            el.querySelectorAll('[data-action]').forEach(function (btn) {
+              btn.addEventListener('click', function (ev) {
+                var action = btn.dataset.action;
+                var id = btn.dataset.id;
+                var title = btn.dataset.title;
+
+                if (action === 'approve') {
+                  btn.disabled = true;
+                  btn.textContent = 'Approving…';
+                  DB.approveWalkthrough(id).then(function () {
+                    pendingStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:1rem 1.25rem;border-radius:var(--radius-sm);background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#fff;">' +
+                      '<div style="font-weight:bold;color:#4ade80;font-size:1rem;margin-bottom:.25rem;">✅ Walkthrough Approved and Published!</div>' +
+                      '<p style="margin:0 0 .75rem;font-size:.9rem;color:var(--text);">“<strong>' + esc(title) + '</strong>” was moved from Pending Walkthroughs to the live Walkthroughs page for everyone to see.</p>' +
+                      '<a class="btn btn--primary btn--sm" href="#/walkthroughs" style="font-size:.82rem;">View on Public Walkthroughs Page →</a>' +
+                    '</div>';
+                    loadPending();
+                  }).catch(function (err) {
+                    alert('Error approving walkthrough: ' + (err.message || err));
+                    btn.disabled = false;
+                    btn.textContent = 'Approve & Publish';
+                  });
+                } else if (action === 'delete-wt') {
+                  if (!confirm('Permanently delete pending walkthrough "' + title + '"?')) return;
+                  btn.disabled = true;
+                  btn.textContent = 'Deleting…';
+                  (DB.deletePendingWalkthrough ? DB.deletePendingWalkthrough(id) : DB.deleteWalkthrough(id)).then(function () {
+                    pendingStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fff;">' +
+                      '<div style="font-weight:bold;color:#f87171;font-size:.92rem;">🗑️ Pending Walkthrough Deleted</div>' +
+                      '<p style="margin:0;font-size:.88rem;color:var(--text);">“' + esc(title) + '” was removed from the database.</p>' +
+                    '</div>';
+                    loadPending();
+                  }).catch(function (err) {
+                    alert('Error deleting walkthrough: ' + (err.message || err));
+                    btn.disabled = false;
+                    btn.textContent = 'Delete';
+                  });
+                }
+              });
             });
           });
         }

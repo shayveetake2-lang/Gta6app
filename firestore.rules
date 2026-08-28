@@ -16,28 +16,39 @@ service cloud.firestore {
       return signedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
-    // Admin: role == 'Admin' in the users collection (checked via Firestore read)
-    // Use custom claim 'admin: true' for server-side enforcement without extra reads.
+    // Admin: role == 'Admin' in users collection OR admin: true token custom claim
     function isAdmin() {
-      return signedIn() && request.auth.token.admin == true;
+      return signedIn() && (
+        request.auth.token.admin == true ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin')
+      );
     }
 
-    // Walkthroughs: public reads, email-auth users can submit (approved defaults to false),
-    // admins can approve/delete, anyone can like.
-    match /walkthroughs/{walkthroughId} {
-      // Public can read approved walkthroughs; admins can read all.
-      allow read: if resource.data.approved == true || isAdmin();
+    // Pending Walkthroughs: email-authenticated users can submit here;
+    // Admins can read, update, delete; authors can delete or view their own submission.
+    match /pendingWalkthroughs/{pendingId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.authorUid == request.auth.uid);
 
-      // Email-auth users can submit a new walkthrough (must default to approved:false).
       allow create: if isEmailUser()
-        && request.resource.data.approved == false
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
         && request.resource.data.title.size() <= 120
         && request.resource.data.get('summary', '').size() <= 400
         && request.resource.data.get('steps', []) is list;
 
-      // Admins can approve (flip approved to true) or edit.
+      allow update: if isAdmin();
+
+      allow delete: if isAdmin() || (signedIn() && resource.data.authorUid == request.auth.uid);
+    }
+
+    // Public Walkthroughs: public read; admins can create (publish from pending), edit, delete;
+    // signed-in users can like.
+    match /walkthroughs/{walkthroughId} {
+      allow read: if true;
+
+      allow create: if isAdmin();
+
       allow update: if isAdmin()
         || (signedIn()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
