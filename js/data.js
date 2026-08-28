@@ -680,7 +680,7 @@ function firestoreBackend(db) {
       }));
     },
 
-    async approveWalkthrough(id) {
+    async approveWalkthrough(id, { category } = {}) {
       const pendingDocRef = doc(db, 'pendingWalkthroughs', id);
       const pendingSnap = await getDoc(pendingDocRef);
       if (!pendingSnap.exists()) throw new Error('Pending walkthrough not found.');
@@ -688,7 +688,7 @@ function firestoreBackend(db) {
       const published = {
         title: data.title || '',
         game: data.game || 'GTA 6',
-        category: data.category || 'Missions',
+        category: category || data.category || 'Missions',
         duration: Number(data.duration) || 30,
         author: data.author || 'Contributor',
         authorUid: data.authorUid || null,
@@ -704,6 +704,18 @@ function firestoreBackend(db) {
       const ref = await addDoc(walkthroughsRef, published);
       await deleteDoc(pendingDocRef);
       return { id: ref.id, ...published, approvedAt: today(), updatedAt: today() };
+    },
+
+    async updateWalkthroughCategory(id, category) {
+      const ref = doc(db, 'walkthroughs', id);
+      await updateDoc(ref, { category, updatedAt: serverTimestamp() });
+      return { id, category };
+    },
+
+    async updatePendingWalkthroughCategory(id, category) {
+      const ref = doc(db, 'pendingWalkthroughs', id);
+      await updateDoc(ref, { category, updatedAt: serverTimestamp() });
+      return { id, category };
     },
 
     async deletePendingWalkthrough(id) {
@@ -849,7 +861,9 @@ export const DB = {
   getWalkthrough: (id) => backend.getWalkthrough(id),
   createWalkthrough: (input) => backend.createWalkthrough(input),
   listPendingWalkthroughs: () => backend.listPendingWalkthroughs(),
-  approveWalkthrough: (id) => backend.approveWalkthrough(id),
+  approveWalkthrough: (id, opts) => backend.approveWalkthrough(id, opts),
+  updateWalkthroughCategory: (id, category) => backend.updateWalkthroughCategory(id, category),
+  updatePendingWalkthroughCategory: (id, category) => backend.updatePendingWalkthroughCategory(id, category),
   deletePendingWalkthrough: (id) => backend.deletePendingWalkthrough(id),
   deleteWalkthrough: (id) => backend.deleteWalkthrough(id),
   listThreads: (category) => backend.listThreads(category),

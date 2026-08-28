@@ -1243,6 +1243,15 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
                     '<p class="admin-row__meta">Submitted by <strong>@' + esc(w.author) + '</strong> · ' + esc(w.category || 'Missions') + ' · ' + esc(w.duration) + ' min · ' + esc(w.createdAt || w.updatedAt) + '</p>' +
                     '<p class="admin-row__meta" style="margin-top:.3rem">' + esc(w.summary || '') + '</p>' +
                     (stepsCount ? '<details style="margin-top:.6rem;cursor:pointer;"><summary style="font-size:.84rem;color:var(--accent);font-weight:600;">View ' + stepsCount + ' Step' + (stepsCount === 1 ? '' : 's') + '</summary><div style="margin-top:.5rem;">' + stepsList + '</div></details>' : '') +
+                    '<div style="display:flex;align-items:center;gap:.5rem;margin-top:.6rem;">' +
+                      '<span style="font-size:.8rem;color:var(--muted);">Filter Category:</span>' +
+                      '<select class="admin-pending-wt-category" data-id="' + esc(w.id) + '" style="padding:.2rem .4rem;font-size:.8rem;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:4px;">' +
+                        ['Missions', 'Cars', 'Races', 'Money', 'Collectibles'].map(function (c) {
+                          return '<option ' + ((w.category || 'Missions') === c ? 'selected' : '') + '>' + esc(c) + '</option>';
+                        }).join('') +
+                      '</select>' +
+                      '<button class="btn btn--ghost btn--sm" data-action="update-pending-category" data-id="' + esc(w.id) + '" style="padding:.2rem .45rem;font-size:.72rem;min-height:24px;">Save</button>' +
+                    '</div>' +
                   '</div>' +
                   '<div class="admin-row__actions">' +
                     '<button class="btn btn--approve btn--sm" data-action="approve" data-id="' + esc(w.id) + '" data-title="' + esc(w.title) + '">Approve & Publish</button>' +
@@ -1260,7 +1269,9 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
                 if (action === 'approve') {
                   btn.disabled = true;
                   btn.textContent = 'Approving…';
-                  DB.approveWalkthrough(id).then(function () {
+                  var row = btn.closest('.admin-row');
+                  var catVal = row.querySelector('.admin-pending-wt-category').value;
+                  DB.approveWalkthrough(id, { category: catVal }).then(function () {
                     pendingStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:1rem 1.25rem;border-radius:var(--radius-sm);background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#fff;">' +
                       '<div style="font-weight:bold;color:#4ade80;font-size:1rem;margin-bottom:.25rem;">✅ Walkthrough Approved and Published!</div>' +
                       '<p style="margin:0 0 .75rem;font-size:.9rem;color:var(--text);">“<strong>' + esc(title) + '</strong>” was moved from Pending Walkthroughs to the live Walkthroughs page for everyone to see.</p>' +
@@ -1273,6 +1284,22 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
                       '<span>Error approving walkthrough: ' + esc(err.message || err) + '</span>' +
                       '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.2rem;">✕</button></div>';
                     loadPending();
+                  });
+                } else if (action === 'update-pending-category') {
+                  btn.disabled = true;
+                  btn.textContent = 'Saving…';
+                  var row = btn.closest('.admin-row');
+                  var catVal = row.querySelector('.admin-pending-wt-category').value;
+                  DB.updatePendingWalkthroughCategory(id, catVal).then(function () {
+                    pendingStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:1rem 1.25rem;border-radius:var(--radius-sm);background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#fff;">' +
+                      '<div style="font-weight:bold;color:#4ade80;font-size:1rem;margin-bottom:.25rem;">✅ Pending Category Updated</div>' +
+                      '<p style="margin:0;font-size:.9rem;color:var(--text);">The filter category has been updated successfully.</p>' +
+                      '</div>';
+                    loadPending();
+                  }).catch(function (err) {
+                    alert('Error updating category: ' + (err.message || err));
+                    btn.disabled = false;
+                    btn.textContent = 'Save';
                   });
                 } else if (action === 'delete-pending-wt') {
                   if (!confirm('Permanently delete pending walkthrough "' + title + '"?')) return;
@@ -1315,11 +1342,20 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
 
           el.innerHTML = alertHtml + searchHtml +
             '<div class="stack">' + items.map(function (w) {
-              return '<div class="admin-row">' +
+              return '<div class="admin-row" data-wt-id="' + esc(w.id) + '">' +
                 '<div class="admin-row__body">' +
                   '<h3><a href="#/walkthroughs/' + esc(w.id) + '" style="color:var(--accent);text-decoration:none;">' + esc(w.title) + '</a> <span class="badge badge--' + esc((w.category || 'Missions').toLowerCase().replace(/[^a-z0-9]/g, '-')) + '" style="vertical-align:middle;margin-left:.3rem;">' + esc(w.category || 'Missions') + '</span></h3>' +
                   '<p class="admin-row__meta">By <strong>@' + esc(w.author) + '</strong> · ' + esc(w.game || 'GTA 6') + ' · ' + esc(w.duration) + ' min · ' + (w.likes || 0) + ' likes · ' + esc(w.updatedAt || w.createdAt || '') + '</p>' +
                   '<p class="admin-row__meta" style="margin-top:.25rem">' + esc(w.summary || '') + '</p>' +
+                  '<div style="display:flex;align-items:center;gap:.5rem;margin-top:.6rem;">' +
+                    '<span style="font-size:.8rem;color:var(--muted);">Filter Category:</span>' +
+                    '<select class="admin-published-wt-category" data-id="' + esc(w.id) + '" style="padding:.2rem .4rem;font-size:.8rem;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:4px;">' +
+                      ['Missions', 'Cars', 'Races', 'Money', 'Collectibles'].map(function (c) {
+                        return '<option ' + ((w.category || 'Missions') === c ? 'selected' : '') + '>' + esc(c) + '</option>';
+                      }).join('') +
+                    '</select>' +
+                    '<button class="btn btn--ghost btn--sm" data-action="update-published-category" data-id="' + esc(w.id) + '" style="padding:.2rem .45rem;font-size:.72rem;min-height:24px;">Save</button>' +
+                  '</div>' +
                 '</div>' +
                 '<div class="admin-row__actions">' +
                   '<a class="btn btn--ghost btn--sm" href="#/walkthroughs/' + esc(w.id) + '">View</a>' +
@@ -1330,25 +1366,45 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
 
           setupPublishedSearch();
 
-          el.querySelectorAll('[data-action="delete-published-wt"]').forEach(function (btn) {
+          el.querySelectorAll('[data-action]').forEach(function (btn) {
             btn.addEventListener('click', function () {
+              var action = btn.dataset.action;
               var id = btn.dataset.id;
               var title = btn.dataset.title;
-              if (!confirm('Permanently remove published walkthrough "' + title + '" from the site?')) return;
-              btn.disabled = true;
-              btn.textContent = 'Removing…';
-              DB.deleteWalkthrough(id).then(function () {
-                publishedStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fff;">' +
-                  '<div style="font-weight:bold;color:#f87171;font-size:.92rem;">🗑️ Walkthrough Removed</div>' +
-                  '<p style="margin:0;font-size:.88rem;color:var(--text);">“' + esc(title) + '” was permanently removed from live walkthroughs.</p>' +
-                '</div>';
-                loadPublished();
-              }).catch(function (err) {
-                publishedStatusMsg = '<div class="admin-notice form-error is-visible" style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;">' +
-                  '<span>Error removing walkthrough: ' + esc(err.message || err) + '</span>' +
-                  '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.2rem;">✕</button></div>';
-                loadPublished();
-              });
+
+              if (action === 'delete-published-wt') {
+                if (!confirm('Permanently remove published walkthrough "' + title + '" from the site?')) return;
+                btn.disabled = true;
+                btn.textContent = 'Removing…';
+                DB.deleteWalkthrough(id).then(function () {
+                  publishedStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fff;">' +
+                    '<div style="font-weight:bold;color:#f87171;font-size:.92rem;">🗑️ Walkthrough Removed</div>' +
+                    '<p style="margin:0;font-size:.88rem;color:var(--text);">“' + esc(title) + '” was permanently removed from live walkthroughs.</p>' +
+                  '</div>';
+                  loadPublished();
+                }).catch(function (err) {
+                  publishedStatusMsg = '<div class="admin-notice form-error is-visible" style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;">' +
+                    '<span>Error removing walkthrough: ' + esc(err.message || err) + '</span>' +
+                    '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.2rem;">✕</button></div>';
+                  loadPublished();
+                });
+              } else if (action === 'update-published-category') {
+                btn.disabled = true;
+                btn.textContent = 'Saving…';
+                var row = btn.closest('.admin-row');
+                var catVal = row.querySelector('.admin-published-wt-category').value;
+                DB.updateWalkthroughCategory(id, catVal).then(function () {
+                  publishedStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:1rem 1.25rem;border-radius:var(--radius-sm);background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#fff;">' +
+                    '<div style="font-weight:bold;color:#4ade80;font-size:1rem;margin-bottom:.25rem;">✅ Category Updated Successfully</div>' +
+                    '<p style="margin:0;font-size:.9rem;color:var(--text);">The live guide filter category has been updated.</p>' +
+                    '</div>';
+                  loadPublished();
+                }).catch(function (err) {
+                  alert('Error updating category: ' + (err.message || err));
+                  btn.disabled = false;
+                  btn.textContent = 'Save';
+                });
+              }
             });
           });
         }
