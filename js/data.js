@@ -423,8 +423,7 @@ function firestoreBackend(db) {
     },
 
     async listWalkthroughs({ difficulty = 'all', query: q = '', includePending = false } = {}) {
-      const filters = includePending ? [] : [where('approved', '==', true)];
-      const snap = await getDocs(query(walkthroughsRef, ...filters, limit(100)));
+      const snap = await getDocs(query(walkthroughsRef, limit(100)));
       const needle = q.trim().toLowerCase();
       return snap.docs
         .map((d) => ({ id: d.id, ...d.data(), updatedAt: toDateString(d.data().updatedAt) }))
@@ -684,7 +683,7 @@ export const DB = {
   createWalkthrough: (input) => backend.createWalkthrough(input),
   listPendingWalkthroughs: () => backend.listPendingWalkthroughs(),
   approveWalkthrough: (id) => backend.approveWalkthrough(id),
-  deletePendingWalkthrough: (id) => backend.deletePendingWalkthrough ? backend.deletePendingWalkthrough(id) : backend.deleteWalkthrough(id),
+  deletePendingWalkthrough: (id) => backend.deletePendingWalkthrough(id),
   deleteWalkthrough: (id) => backend.deleteWalkthrough(id),
   listThreads: (category) => backend.listThreads(category),
   getThread: (id) => backend.getThread(id),

@@ -14,7 +14,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
   var achievementApi = window.ACHIEVEMENT_API_URL || '';
 
   var authArea = document.getElementById('authArea');
-  var state = { difficulty: 'all', query: '', category: 'all', accountQuery: '', siteQuery: '', globalQuery: '' };
+  var state = { difficulty: 'all', query: '', category: 'all', accountQuery: '', siteQuery: '' };
 
   /* ---------- auth bar ---------- */
 
@@ -292,6 +292,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
       var levels = ['all', 'easy', 'medium', 'hard'];
       var canCreate = isEmailUser();
       render('' +
+        '<div id="wtStatusMessage"></div>' +
         '<div class="wt-toolbar">' +
           '<div class="section-head" style="margin:0"><h2>Walkthroughs</h2><span class="card__meta" id="guideCount"></span></div>' +
           (canCreate ? '<button class="btn btn--primary" id="createWtBtn">+ Create walkthrough</button>' : '') +
@@ -318,10 +319,12 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
                 '<div class="field"><label for="wtGame">Game</label><input id="wtGame" value="GTA 6" maxlength="60" /></div>' +
                 '<div class="field"><label for="wtSummary">Summary</label><textarea id="wtSummary" maxlength="400" placeholder="Brief overview…"></textarea></div>' +
                 '<div class="field"><label for="wtSteps">Steps (one per line)</label><textarea id="wtSteps" required rows="6" placeholder="Step 1: Go to...&#10;Step 2: Talk to..."></textarea></div>' +
-                '<div class="field"><label for="wtDifficulty">Difficulty</label><select id="wtDifficulty"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></div>' +
-                '<div class="field"><label for="wtDuration">Estimated time (minutes)</label><input id="wtDuration" type="number" min="1" max="999" value="30" /></div>' +
-                '<div class="field"><label for="wtTags">Tags (comma-separated)</label><input id="wtTags" placeholder="heist, story, tips" /></div>' +
-                '<div class="toolbar"><button class="btn btn--primary" type="submit">Submit for review</button></div>' +
+                '<div style="display:flex;gap:1rem;">' +
+                  '<div class="field" style="flex:1"><label for="wtDifficulty">Difficulty</label><select id="wtDifficulty"><option>easy</option><option>medium</option><option>hard</option></select></div>' +
+                  '<div class="field" style="flex:1"><label for="wtDuration">Duration (mins)</label><input type="number" id="wtDuration" value="15" min="1" max="999" /></div>' +
+                '</div>' +
+                '<div class="field"><label for="wtTags">Tags (comma separated)</label><input id="wtTags" placeholder="mission, stealth, weapons" /></div>' +
+                '<div style="margin-top:1rem;display:flex;justify-content:flex-end;"><button class="btn btn--primary" type="submit">Submit for review</button></div>' +
               '</form>' +
             '</div>' +
           '</div>' : ''));
@@ -329,48 +332,49 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
       var input = document.getElementById('guideSearch');
       var results = document.getElementById('guideResults');
       var count = document.getElementById('guideCount');
-      var filters = document.getElementById('filters');
-      input.value = state.query;
+      if (input) input.value = state.query;
 
-      function update() {
-        Data.listWalkthroughs({ difficulty: state.difficulty, query: state.query }).then(function (items) {
-          count.textContent = items.length + (items.length === 1 ? ' guide' : ' guides');
-          results.innerHTML = items.length
-            ? '<div class="grid">' + items.map(walkthroughCard).join('') + '</div>'
-            : emptyState('No walkthroughs match your filters.');
+      function refresh() {
+        Data.listWalkthroughs({ query: state.query, difficulty: state.difficulty }).then(function (items) {
+          if (!results) return;
+          count.textContent = '(' + items.length + ')';
+          if (!items.length) {
+            results.innerHTML = emptyState(state.query ? 'No guides found matching "' + state.query + '"' : 'No walkthroughs yet.');
+            return;
+          }
+          results.innerHTML = '<div class="grid">' + items.map(walkthroughCard).join('') + '</div>';
         });
       }
 
-      document.getElementById('guideSearchForm').addEventListener('submit', function (e) { e.preventDefault(); });
-      input.addEventListener('input', debounce(function () {
-        state.query = input.value;
-        update();
-      }));
+      refresh();
 
-      filters.addEventListener('click', function (e) {
-        var btn = e.target.closest('[data-difficulty]');
-        if (!btn) return;
-        state.difficulty = btn.dataset.difficulty;
-        filters.querySelectorAll('.chip').forEach(function (chip) {
-          chip.classList.toggle('is-active', chip === btn);
-        });
-        update();
+      if (input) {
+        input.addEventListener('input', debounce(function () {
+          state.query = input.value.trim().toLowerCase();
+          refresh();
+        }));
+      }
+
+      document.getElementById('filters').addEventListener('click', function (e) {
+        if (!e.target.matches('.chip')) return;
+        state.difficulty = e.target.dataset.difficulty;
+        document.querySelectorAll('#filters .chip').forEach(function (c) { c.classList.toggle('is-active', c === e.target); });
+        refresh();
       });
 
-      update();
-
-      // Walkthrough creation modal (only for signed-in users)
-      var createBtn = document.getElementById('createWtBtn');
       var wtModal = document.getElementById('wtModal');
-      if (createBtn && wtModal) {
-        createBtn.addEventListener('click', function () { wtModal.hidden = false; });
+      var createBtn = document.getElementById('createWtBtn');
+      if (createBtn) {
+        createBtn.addEventListener('click', function () {
+          wtModal.hidden = false;
+          document.getElementById('wtError').classList.remove('is-visible');
+        });
         document.getElementById('wtModalClose').addEventListener('click', function () { wtModal.hidden = true; });
-        wtModal.addEventListener('click', function (e) { if (e.target === wtModal) wtModal.hidden = true; });
         document.getElementById('wtForm').addEventListener('submit', function (e) {
           e.preventDefault();
+          var btn = e.target.querySelector('[type="submit"]');
           var errEl = document.getElementById('wtError');
           errEl.classList.remove('is-visible');
-          var btn = e.target.querySelector('[type="submit"]');
           btn.disabled = true;
           btn.textContent = 'Submitting…';
           var rawTags = document.getElementById('wtTags').value;
@@ -389,7 +393,12 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
             e.target.reset();
             btn.disabled = false;
             btn.textContent = 'Submit for review';
-            alert('Walkthrough submitted! It has been saved temporarily to Pending Walkthroughs and will be published once an admin approves it.');
+            var statusDiv = document.getElementById('wtStatusMessage');
+            if (statusDiv) {
+              statusDiv.innerHTML = '<div class="form-success is-visible" style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;">' +
+                '<span>✅ Walkthrough submitted! It has been saved temporarily to Pending Walkthroughs and will be published once an admin approves it.</span>' +
+                '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.2rem;">✕</button></div>';
+            }
           }).catch(function (err) {
             errEl.textContent = err.message || 'Could not submit.';
             errEl.classList.add('is-visible');
@@ -549,22 +558,55 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
               '<div><p class="thread__meta">' + esc(r.author) + ' · ' + esc(r.createdAt) + '</p><p>' + esc(r.body) + '</p></div>' +
             '</div>';
           }).join('') +
-          '<form class="stack" id="replyForm" style="margin-top:1.5rem">' +
-            '<div class="field"><label for="replyBody">Your reply</label>' +
-            '<textarea id="replyBody" required maxlength="2000"></textarea></div>' +
-            '<div><button class="btn btn--primary" type="submit">Post reply</button></div>' +
-          '</form>');
+          (isEmailUser()
+            ? '<form class="stack" id="replyForm" style="margin-top:1.5rem">' +
+                '<div class="field"><label for="replyBody">Your reply</label>' +
+                '<textarea id="replyBody" required maxlength="2000"></textarea></div>' +
+                '<div><button class="btn btn--primary" type="submit">Post reply</button></div>' +
+              '</form>'
+            : '<div style="margin-top:2rem;padding:1.5rem;text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);">' +
+                '<p style="color:var(--muted);margin:0 0 1rem;">Log in to join the discussion.</p>' +
+                '<div class="toolbar" style="justify-content:center;">' +
+                  '<a class="btn btn--primary" href="#/login">Log in</a>' +
+                  '<a class="btn btn--ghost" href="#/register">Register</a>' +
+                '</div>' +
+              '</div>')
+        );
 
-        document.getElementById('replyForm').addEventListener('submit', function (e) {
-          e.preventDefault();
-          var body = document.getElementById('replyBody').value.trim();
-          if (!body) return;
-          Data.addReply(t.id, { body: body }).then(function () { views['/thread'](t.id); });
-        });
+        var replyForm = document.getElementById('replyForm');
+        if (replyForm) {
+          replyForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var body = document.getElementById('replyBody').value.trim();
+            if (!body) return;
+            var btn = e.target.querySelector('[type="submit"]');
+            btn.disabled = true;
+            btn.textContent = 'Posting…';
+            Data.addReply(t.id, { body: body }).then(function () {
+              views['/thread'](t.id);
+            }).catch(function (err) {
+              btn.disabled = false;
+              btn.textContent = 'Post reply';
+              console.error(err);
+            });
+          });
+        }
       });
     },
 
     '/new-thread': function () {
+      if (!isEmailUser()) {
+        render('' +
+          '<div class="section-head"><h2>Start a thread</h2></div>' +
+          '<div class="auth-form" style="max-width:480px;margin:1.5rem auto;text-align:center;">' +
+            '<p style="color:var(--muted);margin-bottom:1.25rem;">You must be logged in to post a thread.</p>' +
+            '<div class="toolbar" style="justify-content:center;">' +
+              '<a class="btn btn--primary" href="#/login">Log in</a>' +
+              '<a class="btn btn--ghost" href="#/register">Create account</a>' +
+            '</div>' +
+          '</div>');
+        return;
+      }
       Data.categories().then(function (cats) {
         render('' +
           '<div class="section-head"><h2>Start a thread</h2></div>' +
@@ -582,11 +624,19 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
 
         document.getElementById('threadForm').addEventListener('submit', function (e) {
           e.preventDefault();
+          var btn = e.target.querySelector('[type="submit"]');
+          btn.disabled = true;
+          btn.textContent = 'Publishing…';
           Data.createThread({
             title: document.getElementById('tTitle').value.trim(),
             category: document.getElementById('tCat').value,
             body: document.getElementById('tBody').value.trim()
-          }).then(function (t) { location.hash = '#/thread/' + t.id; });
+          }).then(function (t) { location.hash = '#/thread/' + t.id; })
+            .catch(function (err) {
+              btn.disabled = false;
+              btn.textContent = 'Publish';
+              console.error(err);
+            });
         });
       });
     },
@@ -672,6 +722,9 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
 
     '/search': function () {
       var q = state.siteQuery || searchInput.value.trim();
+      state.siteQuery = q;
+      searchInput.value = q;
+      
       if (!q) {
         render('<div class="section-head"><h2>Search</h2></div>' + emptyState('Type something in the search bar above.'));
         return;
@@ -814,24 +867,27 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
                     '</div>';
                     loadPending();
                   }).catch(function (err) {
-                    alert('Error approving walkthrough: ' + (err.message || err));
-                    btn.disabled = false;
-                    btn.textContent = 'Approve & Publish';
+                    pendingStatusMsg = '<div class="admin-notice form-error is-visible" style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;">' +
+                      '<span>Error approving walkthrough: ' + esc(err.message || err) + '</span>' +
+                      '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.2rem;">✕</button></div>';
+                    loadPending();
+                    // button state is reset on next render via loadPending
                   });
                 } else if (action === 'delete-wt') {
                   if (!confirm('Permanently delete pending walkthrough "' + title + '"?')) return;
                   btn.disabled = true;
                   btn.textContent = 'Deleting…';
-                  (DB.deletePendingWalkthrough ? DB.deletePendingWalkthrough(id) : DB.deleteWalkthrough(id)).then(function () {
+                  DB.deletePendingWalkthrough(id).then(function () {
                     pendingStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fff;">' +
                       '<div style="font-weight:bold;color:#f87171;font-size:.92rem;">🗑️ Pending Walkthrough Deleted</div>' +
                       '<p style="margin:0;font-size:.88rem;color:var(--text);">“' + esc(title) + '” was removed from the database.</p>' +
                     '</div>';
                     loadPending();
                   }).catch(function (err) {
-                    alert('Error deleting walkthrough: ' + (err.message || err));
-                    btn.disabled = false;
-                    btn.textContent = 'Delete';
+                    pendingStatusMsg = '<div class="admin-notice form-error is-visible" style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;">' +
+                      '<span>Error deleting walkthrough: ' + esc(err.message || err) + '</span>' +
+                      '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.2rem;">✕</button></div>';
+                    loadPending();
                   });
                 }
               });

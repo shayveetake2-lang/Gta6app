@@ -84,16 +84,6 @@ export function onAuthChange(cb) {
 export function getDb()   { return firestore; }
 export function getUser() { return currentUser; }
 
-export async function signInAdmin(email, password) {
-  if (!auth) throw new Error('Firebase is not configured.');
-  await signInWithEmailAndPassword(auth, email, password);
-  return currentUser;
-}
-
-export async function signOutUser() {
-  if (auth) await signOut(auth);
-}
-
 export function displayName() {
   if (!currentUser) return 'guest';
   return currentUser.displayName || 'user-' + currentUser.uid.slice(0, 5);
