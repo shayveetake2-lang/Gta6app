@@ -462,10 +462,12 @@ main { padding: 1.25rem 0 2.5rem; }
 @media (max-width: 860px) {
   .nav {
     position: fixed;
-    inset: 0 30% 0 0;
-    max-width: 320px;
+    inset: 0 50% 0 0;
+    max-width: 280px;
     z-index: 38;
-    background: var(--surface);
+    background-color: var(--surface);
+    background-image: none;
+    backdrop-filter: none;
     border-right: 1px solid var(--border);
     box-shadow: var(--shadow);
     padding: calc(var(--topbar-h) + 1rem + env(safe-area-inset-top)) 1rem 1rem;
