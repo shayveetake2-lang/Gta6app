@@ -462,11 +462,13 @@ main { padding: 1.25rem 0 2.5rem; }
 @media (max-width: 860px) {
   .nav {
     position: fixed;
-    inset: 0 50% 0 0;
-    max-width: 280px;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(50vw, 280px);
+    height: 100dvh;
     z-index: 38;
-    background-color: var(--surface);
-    background-image: none;
+    background: #161b22;
     backdrop-filter: none;
     border-right: 1px solid var(--border);
     box-shadow: var(--shadow);
