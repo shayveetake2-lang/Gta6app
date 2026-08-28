@@ -1,4 +1,4 @@
-import { DB, dbReady } from './data.js?v=6';
+import { DB, dbReady } from './data.js?v=9';
 import { isConfigured } from './firebase.js';
 
 (function () {

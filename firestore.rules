@@ -18,7 +18,7 @@ service cloud.firestore {
 
     // New guides are private until an Admin approves them.
     match /walkthroughs/{walkthroughId} {
-      allow read: if resource.data.approved == true || isAdmin();
+      allow read: if resource.data.get('approved', true) == true || isAdmin();
       allow create: if signedIn()
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.title is string

@@ -334,10 +334,11 @@ function firestoreBackend(db) {
 
     async listWalkthroughs({ difficulty = 'all', query: q = '', includePending = false } = {}) {
       const filters = includePending ? [] : [where('approved', '==', true)];
-      const snap = await getDocs(query(walkthroughsRef, ...filters, orderBy('updatedAt', 'desc'), limit(100)));
+      const snap = await getDocs(query(walkthroughsRef, ...filters, limit(100)));
       const needle = q.trim().toLowerCase();
       return snap.docs
         .map((d) => ({ id: d.id, ...d.data(), updatedAt: toDateString(d.data().updatedAt) }))
+        .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt))
         .filter((w) => difficulty === 'all' || w.difficulty === difficulty)
         .filter((w) => matchesQuery(w, needle));
     },
@@ -362,8 +363,9 @@ function firestoreBackend(db) {
       return { id: ref.id, ...input, author: profile.username, approved: false, updatedAt: today() };
     },
     async listPendingWalkthroughs() {
-      const snap = await getDocs(query(walkthroughsRef, where('approved', '==', false), orderBy('updatedAt', 'desc'), limit(100)));
-      return snap.docs.map((d) => ({ id: d.id, ...d.data(), updatedAt: toDateString(d.data().updatedAt) }));
+      const snap = await getDocs(query(walkthroughsRef, where('approved', '==', false), limit(100)));
+      return snap.docs.map((d) => ({ id: d.id, ...d.data(), updatedAt: toDateString(d.data().updatedAt) }))
+        .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));
     },
     async approveWalkthrough(id) {
       await updateDoc(doc(db, 'walkthroughs', id), { approved: true });
