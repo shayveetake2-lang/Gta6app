@@ -164,7 +164,7 @@ export const SEED = {
   ]
 };
 
-export const CATEGORIES = ['General', 'Guides', 'Tech', 'Off-topic'];
+export const CATEGORIES = ['General', 'Guides', 'Tech', 'News', 'Off-topic'];
 
 export const TROPHIES = [
   { id: 't-01', title: 'Welcome to Vice City', description: 'Complete the opening mission.', category: 'Story', tier: 'Bronze' },

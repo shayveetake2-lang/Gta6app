@@ -11,17 +11,42 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
-    // Guides are published from the console / an admin tool, not from the client.
-    match /walkthroughs/{walkthroughId} {
-      allow read: if true;
-      allow create, delete: if false;
-      allow update: if signedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
-        && request.resource.data.likes == resource.data.get('likes', 0) + 1;
+    // Email-authenticated (non-anonymous) user
+    function isEmailUser() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
-    // Public profiles. A signed-in user may only create/edit their own document,
-    // keyed by their auth uid, and may never change their own role.
+    // Admin: role == 'Admin' in the users collection (checked via Firestore read)
+    // Use custom claim 'admin: true' for server-side enforcement without extra reads.
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    // Walkthroughs: public reads, email-auth users can submit (approved defaults to false),
+    // admins can approve/delete, anyone can like.
+    match /walkthroughs/{walkthroughId} {
+      // Public can read approved walkthroughs; admins can read all.
+      allow read: if resource.data.approved == true || isAdmin();
+
+      // Email-auth users can submit a new walkthrough (must default to approved:false).
+      allow create: if isEmailUser()
+        && request.resource.data.approved == false
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.get('summary', '').size() <= 400
+        && request.resource.data.get('steps', []) is list;
+
+      // Admins can approve (flip approved to true) or edit.
+      allow update: if isAdmin()
+        || (signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+          && request.resource.data.likes == resource.data.get('likes', 0) + 1);
+
+      allow delete: if isAdmin();
+    }
+
+    // Users: public reads, owner CRUD, admin can delete any user.
     match /users/{userId} {
       allow read: if true;
 
@@ -52,7 +77,8 @@ service cloud.firestore {
         && request.resource.data.get('bio', '').size() <= 400
         && request.resource.data.get('location', '').size() <= 80;
 
-      allow delete: if isOwner(userId);
+      // Owner or admin can delete a user document.
+      allow delete: if isOwner(userId) || isAdmin();
 
       match /manualAchievements/{achievementId} {
         allow read: if isOwner(userId);
@@ -91,21 +117,27 @@ service cloud.firestore {
         && request.resource.data.body is string
         && request.resource.data.body.size() > 0
         && request.resource.data.body.size() <= 4000
-        && request.resource.data.category in ['General', 'Guides', 'Tech', 'Off-topic']
+        && request.resource.data.category in ['General', 'Guides', 'Tech', 'News', 'Off-topic']
         && request.resource.data.replyCount == 0
         && request.resource.data.createdAt == request.time;
 
-      // Any signed-in user may bump the reply counter or add one like; nothing else may change.
-      allow update: if signedIn()
-        && (
-          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replyCount'])
-            && request.resource.data.replyCount == resource.data.replyCount + 1)
-          ||
-          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
-            && request.resource.data.likes == resource.data.get('likes', 0) + 1)
+      // Signed-in users may bump reply counter or add a like; admins may edit any field.
+      allow update: if isAdmin()
+        || (signedIn()
+          && (
+            (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replyCount'])
+              && request.resource.data.replyCount == resource.data.replyCount + 1)
+            ||
+            (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+              && request.resource.data.likes == resource.data.get('likes', 0) + 1)
+            ||
+            (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replyCount'])
+              && request.resource.data.replyCount == resource.data.replyCount - 1)
+          )
         );
 
-      allow delete: if isOwner(resource.data.authorUid);
+      // Author or admin can delete a thread.
+      allow delete: if isOwner(resource.data.authorUid) || isAdmin();
 
       match /replies/{replyId} {
         allow read: if true;
@@ -117,8 +149,10 @@ service cloud.firestore {
           && request.resource.data.body.size() <= 2000
           && request.resource.data.createdAt == request.time;
 
-        allow update, delete: if isOwner(resource.data.authorUid);
+        // Author or admin can update/delete replies.
+        allow update, delete: if isOwner(resource.data.authorUid) || isAdmin();
       }
     }
   }
 }
+

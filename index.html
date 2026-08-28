@@ -34,10 +34,13 @@
       </nav>
 
       <form class="search" role="search" id="globalSearch">
-        <input type="search" id="globalSearchInput" placeholder="Search guides, achievements..." aria-label="Search guides, achievements" autocomplete="off" />
+        <input type="search" id="globalSearchInput" placeholder="Search everything…" aria-label="Search site" autocomplete="off" />
       </form>
 
-      <a class="profile-btn" href="#/profile/edit" aria-label="Edit your profile" title="Edit profile"><span aria-hidden="true">✎</span><span class="profile-btn__label">Profile</span></a>
+      <div class="auth-area" id="authArea">
+        <!-- populated by app.js -->
+      </div>
+
       <button class="icon-btn" id="themeToggle" aria-label="Toggle color theme" title="Toggle theme">◐</button>
     </div>
   </header>

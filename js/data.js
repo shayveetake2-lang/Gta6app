@@ -5,10 +5,10 @@
  * The UI only ever talks to the exported `DB` object.
  */
 import {
-  collection, doc, getDoc, getDocs, addDoc, setDoc, query, where,
+  collection, doc, getDoc, getDocs, addDoc, setDoc, deleteDoc, query, where,
   orderBy, limit, startAt, endAt, serverTimestamp, increment, updateDoc
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
-import { ready, getDb, getUser, displayName } from './firebase.js';
+import { ready, getDb, getUser, displayName, authRegister, authLogin, authSignOut, isEmailUser } from './firebase.js';
 import { SEED, CATEGORIES, TROPHIES } from './seed.js';
 import { CONTENT_SECTIONS } from './content.js';
 
@@ -188,6 +188,94 @@ const localBackend = {
     thread.replies.push(reply);
     saveLocal();
     return clone(reply);
+  },
+  async createUserWithAuth({ email, password, username, displayName: dName }) {
+    // Local fallback: just create user record without real auth
+    return this.createUser({ username, displayName: dName, bio: '', location: '' });
+  },
+  async loginWithUsernameOrEmail({ usernameOrEmail, password }) {
+    // Local fallback: find user by username or pretend login succeeded
+    const needle = usernameOrEmail.trim().toLowerCase();
+    const found = local.users.find((u) => u.usernameLower === needle || (u.email || '').toLowerCase() === needle);
+    if (!found) throw new Error('No account found with that username or email.');
+    try { localStorage.setItem(LOCAL_PROFILE_KEY, found.id); } catch { /* storage unavailable */ }
+    return found;
+  },
+  async logOut() {
+    try { localStorage.removeItem(LOCAL_PROFILE_KEY); } catch { /* storage unavailable */ }
+  },
+  async createWalkthrough({ title, game, difficulty, duration, cover, summary, tags, steps }) {
+    const user = await this.getCurrentProfile();
+    const wt = {
+      id: uid('wt'),
+      title, game,
+      difficulty: difficulty || 'medium',
+      duration: Number(duration) || 30,
+      author: user ? user.username : 'guest',
+      likes: 0,
+      updatedAt: today(),
+      cover: cover || '🎮',
+      summary: summary || '',
+      tags: Array.isArray(tags) ? tags : [],
+      steps: Array.isArray(steps) ? steps : [],
+      approved: false
+    };
+    local.walkthroughs.unshift(wt);
+    saveLocal();
+    return clone(wt);
+  },
+  async listPendingWalkthroughs() {
+    return clone(local.walkthroughs.filter((w) => !w.approved));
+  },
+  async approveWalkthrough(id) {
+    const wt = local.walkthroughs.find((w) => w.id === id);
+    if (!wt) throw new Error('Walkthrough not found.');
+    wt.approved = true;
+    saveLocal();
+    return clone(wt);
+  },
+  async deleteWalkthrough(id) {
+    const idx = local.walkthroughs.findIndex((w) => w.id === id);
+    if (idx === -1) throw new Error('Walkthrough not found.');
+    local.walkthroughs.splice(idx, 1);
+    saveLocal();
+  },
+  async deleteUser(id) {
+    const idx = local.users.findIndex((u) => u.id === id);
+    if (idx === -1) throw new Error('User not found.');
+    local.users.splice(idx, 1);
+    saveLocal();
+  },
+  async deleteThread(id) {
+    const idx = local.threads.findIndex((t) => t.id === id);
+    if (idx === -1) throw new Error('Thread not found.');
+    local.threads.splice(idx, 1);
+    saveLocal();
+  },
+  async deleteReply(threadId, replyId) {
+    const thread = local.threads.find((t) => t.id === threadId);
+    if (!thread) throw new Error('Thread not found.');
+    const idx = thread.replies.findIndex((r) => r.id === replyId);
+    if (idx === -1) throw new Error('Reply not found.');
+    thread.replies.splice(idx, 1);
+    saveLocal();
+  },
+  async editThread(id, { title, body }) {
+    const thread = local.threads.find((t) => t.id === id);
+    if (!thread) throw new Error('Thread not found.');
+    if (title !== undefined) thread.title = title;
+    if (body !== undefined) thread.body = body;
+    saveLocal();
+    return clone(thread);
+  },
+  async siteSearch(q) {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return { walkthroughs: [], threads: [], users: [] };
+    return {
+      walkthroughs: clone(local.walkthroughs.filter((w) => w.approved && matchesQuery(w, needle)).slice(0, 8)),
+      threads: clone(local.threads.filter((t) => `${t.title} ${t.body}`.toLowerCase().includes(needle)).slice(0, 8)),
+      users: clone(local.users.filter((u) => matchesUser(u, needle)).slice(0, 6))
+    };
   }
 };
 
@@ -390,6 +478,116 @@ function firestoreBackend(db) {
       const ref = await addDoc(collection(db, 'threads', threadId, 'replies'), reply);
       await updateDoc(doc(db, 'threads', threadId), { replyCount: increment(1) });
       return { id: ref.id, ...reply, createdAt: today() };
+    },
+
+    async createUserWithAuth({ email, password, username, displayName: dName }) {
+      const firebaseUser = await authRegister(email, password, dName);
+      const profileRef = doc(db, 'users', firebaseUser.uid);
+      await setDoc(profileRef, {
+        username,
+        usernameLower: username.toLowerCase(),
+        displayName: dName,
+        email,
+        bio: '',
+        location: '',
+        role: 'Member',
+        joinedAt: serverTimestamp()
+      });
+      return { id: firebaseUser.uid, username, displayName: dName, email, role: 'Member', joinedAt: today() };
+    },
+
+    async loginWithUsernameOrEmail({ usernameOrEmail, password }) {
+      let email = usernameOrEmail.trim();
+      if (!email.includes('@')) {
+        // Look up email by username
+        const needle = email.toLowerCase();
+        const snap = await getDocs(query(usersRef, where('usernameLower', '==', needle), limit(1)));
+        if (snap.empty) throw new Error('No account found with that username.');
+        const data = snap.docs[0].data();
+        if (!data.email) throw new Error('This account has no email address on file. Try logging in by email.');
+        email = data.email;
+      }
+      return authLogin(email, password);
+    },
+
+    async logOut() {
+      await authSignOut();
+    },
+
+    async createWalkthrough({ title, game, difficulty, duration, cover, summary, tags, steps }) {
+      const user = getUser();
+      if (!user || user.isAnonymous) throw new Error('You must be signed in to create a walkthrough.');
+      const profile = await this.getCurrentProfile();
+      const ref = await addDoc(walkthroughsRef, {
+        title,
+        game: game || 'GTA 6',
+        difficulty: difficulty || 'medium',
+        duration: Number(duration) || 30,
+        author: profile ? profile.username : displayName(),
+        authorUid: user.uid,
+        likes: 0,
+        updatedAt: serverTimestamp(),
+        cover: cover || '🎮',
+        summary: summary || '',
+        tags: Array.isArray(tags) ? tags : [],
+        steps: Array.isArray(steps) ? steps : [],
+        approved: false
+      });
+      return { id: ref.id, title, game, difficulty, author: profile ? profile.username : displayName(), approved: false, updatedAt: today() };
+    },
+
+    async listPendingWalkthroughs() {
+      const snap = await getDocs(query(walkthroughsRef, where('approved', '==', false), orderBy('updatedAt', 'desc'), limit(100)));
+      return snap.docs.map((d) => ({ id: d.id, ...d.data(), updatedAt: toDateString(d.data().updatedAt) }));
+    },
+
+    async approveWalkthrough(id) {
+      await updateDoc(doc(db, 'walkthroughs', id), { approved: true });
+    },
+
+    async deleteWalkthrough(id) {
+      await deleteDoc(doc(db, 'walkthroughs', id));
+    },
+
+    async deleteUser(id) {
+      await deleteDoc(doc(db, 'users', id));
+    },
+
+    async deleteThread(id) {
+      await deleteDoc(doc(db, 'threads', id));
+    },
+
+    async deleteReply(threadId, replyId) {
+      await deleteDoc(doc(db, 'threads', threadId, 'replies', replyId));
+      await updateDoc(doc(db, 'threads', threadId), { replyCount: increment(-1) });
+    },
+
+    async editThread(id, { title, body }) {
+      const fields = {};
+      if (title !== undefined) fields.title = title;
+      if (body !== undefined) fields.body = body;
+      await updateDoc(doc(db, 'threads', id), fields);
+    },
+
+    async siteSearch(q) {
+      const needle = q.trim().toLowerCase();
+      if (!needle) return { walkthroughs: [], threads: [], users: [] };
+      const [wtSnap, thSnap, usersSnap] = await Promise.all([
+        getDocs(query(walkthroughsRef, where('approved', '==', true), orderBy('updatedAt', 'desc'), limit(100))),
+        getDocs(query(threadsRef, orderBy('createdAt', 'desc'), limit(200))),
+        getDocs(query(usersRef, orderBy('usernameLower'), limit(200)))
+      ]);
+      return {
+        walkthroughs: wtSnap.docs
+          .map((d) => ({ id: d.id, ...d.data(), updatedAt: toDateString(d.data().updatedAt) }))
+          .filter((w) => matchesQuery(w, needle)).slice(0, 8),
+        threads: thSnap.docs
+          .map((d) => ({ id: d.id, ...d.data(), createdAt: toDateString(d.data().createdAt) }))
+          .filter((t) => `${t.title} ${t.body}`.toLowerCase().includes(needle)).slice(0, 8),
+        users: usersSnap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((u) => matchesUser(u, needle)).slice(0, 6)
+      };
     }
   };
 }
@@ -413,18 +611,31 @@ export const DB = {
   getCurrentProfile: () => backend.getCurrentProfile(),
   updateProfile: (input) => backend.updateProfile(input),
   createUser: (input) => backend.createUser(input),
+  createUserWithAuth: (input) => backend.createUserWithAuth(input),
+  loginWithUsernameOrEmail: (input) => backend.loginWithUsernameOrEmail(input),
+  logOut: () => backend.logOut(),
   listManualAchievements: () => backend.listManualAchievements(),
   createManualAchievement: (input) => backend.createManualAchievement(input),
   setManualAchievementCompleted: (id, unlocked) => backend.setManualAchievementCompleted(id, unlocked),
   listWalkthroughs: (opts) => backend.listWalkthroughs(opts),
   getWalkthrough: (id) => backend.getWalkthrough(id),
+  createWalkthrough: (input) => backend.createWalkthrough(input),
+  listPendingWalkthroughs: () => backend.listPendingWalkthroughs(),
+  approveWalkthrough: (id) => backend.approveWalkthrough(id),
+  deleteWalkthrough: (id) => backend.deleteWalkthrough(id),
   listThreads: (category) => backend.listThreads(category),
   getThread: (id) => backend.getThread(id),
   createThread: (input) => backend.createThread(input),
   likeThread: (id) => backend.likeThread(id),
   likeWalkthrough: (id) => backend.likeWalkthrough(id),
   addReply: (threadId, input) => backend.addReply(threadId, input),
+  deleteUser: (id) => backend.deleteUser(id),
+  deleteThread: (id) => backend.deleteThread(id),
+  deleteReply: (threadId, replyId) => backend.deleteReply(threadId, replyId),
+  editThread: (id, fields) => backend.editThread(id, fields),
+  siteSearch: (q) => backend.siteSearch(q),
   categories: async () => CATEGORIES.slice(),
   listTrophies: async () => clone(TROPHIES),
   listContent: async () => clone(CONTENT_SECTIONS)
 };
+

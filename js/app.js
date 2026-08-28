@@ -1,5 +1,5 @@
 import { DB, dbReady } from './data.js';
-import { isConfigured } from './firebase.js';
+import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
 
 (function () {
   'use strict';
@@ -13,7 +13,32 @@ import { isConfigured } from './firebase.js';
   var searchInput = document.getElementById('globalSearchInput');
   var achievementApi = window.ACHIEVEMENT_API_URL || '';
 
+  var authArea = document.getElementById('authArea');
   var state = { difficulty: 'all', query: '', category: 'all', accountQuery: '' };
+
+  /* ---------- auth bar ---------- */
+
+  var currentAuthUser = null;
+
+  function renderAuthArea() {
+    if (!isConfigured) {
+      authArea.innerHTML = '';
+      return;
+    }
+    if (currentAuthUser && isEmailUser()) {
+      var name = currentAuthUser.displayName || currentAuthUser.email || 'Account';
+      authArea.innerHTML =
+        '<a class="btn btn--ghost" href="#/profile/edit" style="font-size:.82rem">' + esc(name) + '</a>' +
+        '<button class="btn btn--ghost" id="logoutBtn" style="font-size:.82rem">Log out</button>';
+      document.getElementById('logoutBtn').addEventListener('click', function () {
+        DB.logOut().then(function () { route(); });
+      });
+    } else {
+      authArea.innerHTML =
+        '<a class="btn btn--ghost" href="#/login" style="font-size:.82rem">Log in</a>' +
+        '<a class="btn btn--primary" href="#/register" style="font-size:.82rem">Register</a>';
+    }
+  }
 
   // Each debounced handler needs its own timer, or the search inputs cancel each other.
   function debounce(fn, wait) {
@@ -249,8 +274,12 @@ import { isConfigured } from './firebase.js';
       if (id) return walkthroughDetail(id);
 
       var levels = ['all', 'easy', 'medium', 'hard'];
+      var canCreate = isEmailUser();
       render('' +
-        '<div class="section-head"><h2>Walkthroughs</h2><span class="card__meta" id="guideCount"></span></div>' +
+        '<div class="wt-toolbar">' +
+          '<div class="section-head" style="margin:0"><h2>Walkthroughs</h2><span class="card__meta" id="guideCount"></span></div>' +
+          (canCreate ? '<button class="btn btn--primary" id="createWtBtn">+ Create walkthrough</button>' : '') +
+        '</div>' +
         '<form class="toolbar" id="guideSearchForm" role="search">' +
           '<div class="field field--grow">' +
             '<label class="sr-only" for="guideSearch">Search guides</label>' +
@@ -261,7 +290,25 @@ import { isConfigured } from './firebase.js';
           return '<button class="chip' + (state.difficulty === l ? ' is-active' : '') + '" data-difficulty="' + l + '">' +
             l.charAt(0).toUpperCase() + l.slice(1) + '</button>';
         }).join('') + '</div>' +
-        '<div id="guideResults" aria-live="polite">' + emptyState('Loading…') + '</div>');
+        '<div id="guideResults" aria-live="polite">' + emptyState('Loading…') + '</div>' +
+        (canCreate ? '' +
+          '<div class="modal-overlay" id="wtModal" hidden>' +
+            '<div class="modal">' +
+              '<div class="modal__head"><h2>Submit a walkthrough</h2><button class="modal__close" id="wtModalClose">✕</button></div>' +
+              '<p class="card__meta" style="margin:0 0 1rem">Your walkthrough will be reviewed by an admin before going live.</p>' +
+              '<div class="form-error" id="wtError"></div>' +
+              '<form class="stack" id="wtForm">' +
+                '<div class="field"><label for="wtTitle">Title</label><input id="wtTitle" required maxlength="120" placeholder="e.g. How to complete The Heist" /></div>' +
+                '<div class="field"><label for="wtGame">Game</label><input id="wtGame" value="GTA 6" maxlength="60" /></div>' +
+                '<div class="field"><label for="wtSummary">Summary</label><textarea id="wtSummary" maxlength="400" placeholder="Brief overview…"></textarea></div>' +
+                '<div class="field"><label for="wtSteps">Steps (one per line)</label><textarea id="wtSteps" required rows="6" placeholder="Step 1: Go to...&#10;Step 2: Talk to..."></textarea></div>' +
+                '<div class="field"><label for="wtDifficulty">Difficulty</label><select id="wtDifficulty"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></div>' +
+                '<div class="field"><label for="wtDuration">Estimated time (minutes)</label><input id="wtDuration" type="number" min="1" max="999" value="30" /></div>' +
+                '<div class="field"><label for="wtTags">Tags (comma-separated)</label><input id="wtTags" placeholder="heist, story, tips" /></div>' +
+                '<div class="toolbar"><button class="btn btn--primary" type="submit">Submit for review</button></div>' +
+              '</form>' +
+            '</div>' +
+          '</div>' : ''));
 
       var input = document.getElementById('guideSearch');
       var results = document.getElementById('guideResults');
@@ -295,6 +342,46 @@ import { isConfigured } from './firebase.js';
       });
 
       update();
+
+      // Walkthrough creation modal (only for signed-in users)
+      var createBtn = document.getElementById('createWtBtn');
+      var wtModal = document.getElementById('wtModal');
+      if (createBtn && wtModal) {
+        createBtn.addEventListener('click', function () { wtModal.hidden = false; });
+        document.getElementById('wtModalClose').addEventListener('click', function () { wtModal.hidden = true; });
+        wtModal.addEventListener('click', function (e) { if (e.target === wtModal) wtModal.hidden = true; });
+        document.getElementById('wtForm').addEventListener('submit', function (e) {
+          e.preventDefault();
+          var errEl = document.getElementById('wtError');
+          errEl.classList.remove('is-visible');
+          var btn = e.target.querySelector('[type="submit"]');
+          btn.disabled = true;
+          btn.textContent = 'Submitting…';
+          var rawTags = document.getElementById('wtTags').value;
+          var tags = rawTags.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+          var steps = document.getElementById('wtSteps').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+          DB.createWalkthrough({
+            title: document.getElementById('wtTitle').value.trim(),
+            game: document.getElementById('wtGame').value.trim(),
+            summary: document.getElementById('wtSummary').value.trim(),
+            steps: steps,
+            difficulty: document.getElementById('wtDifficulty').value,
+            duration: document.getElementById('wtDuration').value,
+            tags: tags
+          }).then(function () {
+            wtModal.hidden = true;
+            e.target.reset();
+            btn.disabled = false;
+            btn.textContent = 'Submit for review';
+            alert('Walkthrough submitted! It will appear after admin review.');
+          }).catch(function (err) {
+            errEl.textContent = err.message || 'Could not submit.';
+            errEl.classList.add('is-visible');
+            btn.disabled = false;
+            btn.textContent = 'Submit for review';
+          });
+        });
+      }
     },
 
     '/accounts': function () {
@@ -494,13 +581,273 @@ import { isConfigured } from './firebase.js';
           '<p>GTA6 Walkthrough is a community library of game guides backed by a database of walkthroughs, steps and forum threads.</p>' +
           '<p class="card__meta">Backend: ' + (isConfigured ? 'Cloud Firestore' : 'local browser storage — add your project keys in js/firebase-config.js to go live') + '.</p>' +
         '</div>');
+    },
+
+    '/register': function () {
+      render('' +
+        '<div class="auth-form">' +
+          '<h2>Create account</h2>' +
+          '<form class="stack" id="registerForm">' +
+            '<div class="form-error" id="regError"></div>' +
+            '<div class="field"><label for="regUsername">Username</label><input id="regUsername" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+" placeholder="e.g. nova_gta6" /></div>' +
+            '<div class="field"><label for="regDisplay">Display name</label><input id="regDisplay" required maxlength="60" placeholder="Your public name" /></div>' +
+            '<div class="field"><label for="regEmail">Email</label><input id="regEmail" type="email" required placeholder="you@example.com" /></div>' +
+            '<div class="field"><label for="regPassword">Password</label><input id="regPassword" type="password" required minlength="6" placeholder="At least 6 characters" /></div>' +
+            '<button class="btn btn--primary" type="submit">Create account</button>' +
+          '</form>' +
+          '<p class="auth-switch">Already have an account? <a href="#/login">Log in</a></p>' +
+        '</div>');
+      document.getElementById('registerForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var errEl = document.getElementById('regError');
+        errEl.classList.remove('is-visible');
+        var btn = e.target.querySelector('[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = 'Creating…';
+        DB.createUserWithAuth({
+          email: document.getElementById('regEmail').value.trim(),
+          password: document.getElementById('regPassword').value,
+          username: document.getElementById('regUsername').value.trim(),
+          displayName: document.getElementById('regDisplay').value.trim()
+        }).then(function () {
+          location.hash = '#/';
+        }).catch(function (err) {
+          errEl.textContent = err.message || 'Could not create account.';
+          errEl.classList.add('is-visible');
+          btn.disabled = false;
+          btn.textContent = 'Create account';
+        });
+      });
+    },
+
+    '/login': function () {
+      render('' +
+        '<div class="auth-form">' +
+          '<h2>Log in</h2>' +
+          '<form class="stack" id="loginForm">' +
+            '<div class="form-error" id="loginError"></div>' +
+            '<div class="field"><label for="loginId">Username or email</label><input id="loginId" required autocomplete="username" placeholder="username or you@example.com" /></div>' +
+            '<div class="field"><label for="loginPw">Password</label><input id="loginPw" type="password" required autocomplete="current-password" /></div>' +
+            '<button class="btn btn--primary" type="submit">Log in</button>' +
+          '</form>' +
+          '<p class="auth-switch">No account yet? <a href="#/register">Register</a></p>' +
+        '</div>');
+      document.getElementById('loginForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var errEl = document.getElementById('loginError');
+        errEl.classList.remove('is-visible');
+        var btn = e.target.querySelector('[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = 'Logging in…';
+        DB.loginWithUsernameOrEmail({
+          usernameOrEmail: document.getElementById('loginId').value.trim(),
+          password: document.getElementById('loginPw').value
+        }).then(function () {
+          location.hash = '#/';
+        }).catch(function (err) {
+          errEl.textContent = err.message || 'Login failed.';
+          errEl.classList.add('is-visible');
+          btn.disabled = false;
+          btn.textContent = 'Log in';
+        });
+      });
+    },
+
+    '/search': function () {
+      var q = state.siteQuery || searchInput.value.trim();
+      if (!q) {
+        render('<div class="section-head"><h2>Search</h2></div>' + emptyState('Type something in the search bar above.'));
+        return;
+      }
+      render('<div class="section-head"><h2>Results for "<em>' + esc(q) + '</em>"</h2></div>' +
+        '<div id="searchResults" aria-live="polite">' + emptyState('Searching…') + '</div>');
+      DB.siteSearch(q).then(function (res) {
+        var html = '';
+        if (res.walkthroughs.length) {
+          html += '<div class="search-section"><h3>Walkthroughs</h3>' +
+            res.walkthroughs.map(function (w) {
+              return '<a class="search-hit" href="#/walkthroughs/' + esc(w.id) + '">' +
+                '<span class="search-hit__icon">' + esc(w.cover || '🎮') + '</span>' +
+                '<div class="search-hit__body">' +
+                  '<p class="search-hit__title">' + esc(w.title) + '</p>' +
+                  '<p class="search-hit__meta">' + esc(w.difficulty) + ' · by ' + esc(w.author) + ' · ' + esc(w.updatedAt) + '</p>' +
+                '</div>' +
+              '</a>';
+            }).join('') + '</div>';
+        }
+        if (res.threads.length) {
+          html += '<div class="search-section"><h3>Forum threads</h3>' +
+            res.threads.map(function (t) {
+              return '<a class="search-hit" href="#/thread/' + esc(t.id) + '">' +
+                '<span class="search-hit__icon">💬</span>' +
+                '<div class="search-hit__body">' +
+                  '<p class="search-hit__title">' + esc(t.title) + '</p>' +
+                  '<p class="search-hit__meta">' + esc(t.category) + ' · ' + esc(t.author) + ' · ' + esc(t.createdAt) + '</p>' +
+                '</div>' +
+              '</a>';
+            }).join('') + '</div>';
+        }
+        if (res.users.length) {
+          html += '<div class="search-section"><h3>Members</h3>' +
+            res.users.map(function (u) {
+              return '<a class="search-hit" href="#/account/' + esc(u.id) + '">' +
+                '<span class="search-hit__icon">👤</span>' +
+                '<div class="search-hit__body">' +
+                  '<p class="search-hit__title">' + esc(u.displayName || u.username) + '</p>' +
+                  '<p class="search-hit__meta">@' + esc(u.username) + ' · ' + esc(u.role || 'Member') + '</p>' +
+                '</div>' +
+              '</a>';
+            }).join('') + '</div>';
+        }
+        if (!html) html = emptyState('No results found for "' + esc(q) + '".');
+        document.getElementById('searchResults').innerHTML = html;
+      }).catch(function (err) {
+        var el = document.getElementById('searchResults');
+        if (el) el.innerHTML = errorState(err);
+      });
+    },
+
+    '/admin': function () {
+      // Gate: only email-authenticated users with Admin role can see this.
+      if (!isEmailUser()) {
+        render('<div class="section-head"><h2>Admin</h2></div>' +
+          emptyState('You must be logged in to access the admin dashboard.') +
+          '<div class="toolbar" style="justify-content:center;margin-top:1rem">' +
+            '<a class="btn btn--primary" href="#/login">Log in</a>' +
+          '</div>');
+        return;
+      }
+      DB.getCurrentProfile().then(function (profile) {
+        if (!profile || profile.role !== 'Admin') {
+          render('<div class="section-head"><h2>Admin</h2></div>' + emptyState('Access denied — Admin role required.'));
+          return;
+        }
+        render('' +
+          '<div class="section-head"><h2>Admin Dashboard</h2><span class="card__meta">Signed in as ' + esc(profile.displayName || profile.username) + '</span></div>' +
+          '<div class="admin-tabs">' +
+            '<button class="admin-tab is-active" data-tab="walkthroughs">Pending walkthroughs</button>' +
+            '<button class="admin-tab" data-tab="users">User management</button>' +
+            '<button class="admin-tab" data-tab="moderation">Forum moderation</button>' +
+          '</div>' +
+          '<div id="adminPanel-walkthroughs" class="admin-panel is-active"><p class="empty">Loading…</p></div>' +
+          '<div id="adminPanel-users" class="admin-panel"><p class="empty">Loading…</p></div>' +
+          '<div id="adminPanel-moderation" class="admin-panel"><p class="empty">Loading…</p></div>');
+
+        // Tab switching
+        document.querySelector('.admin-tabs').addEventListener('click', function (e) {
+          var tab = e.target.closest('.admin-tab');
+          if (!tab) return;
+          document.querySelectorAll('.admin-tab').forEach(function (t) { t.classList.remove('is-active'); });
+          document.querySelectorAll('.admin-panel').forEach(function (p) { p.classList.remove('is-active'); });
+          tab.classList.add('is-active');
+          document.getElementById('adminPanel-' + tab.dataset.tab).classList.add('is-active');
+        });
+
+        // -- Walkthroughs panel --
+        function loadPending() {
+          DB.listPendingWalkthroughs().then(function (items) {
+            var el = document.getElementById('adminPanel-walkthroughs');
+            if (!el) return;
+            if (!items.length) { el.innerHTML = emptyState('No pending walkthroughs.'); return; }
+            el.innerHTML = items.map(function (w) {
+              return '<div class="admin-row" data-wt-id="' + esc(w.id) + '">' +
+                '<div class="admin-row__body">' +
+                  '<h3>' + esc(w.title) + '</h3>' +
+                  '<p class="admin-row__meta">by ' + esc(w.author) + ' · ' + esc(w.difficulty) + ' · submitted ' + esc(w.updatedAt) + '</p>' +
+                  '<p class="admin-row__meta" style="margin-top:.3rem">' + esc(w.summary || '') + '</p>' +
+                '</div>' +
+                '<div class="admin-row__actions">' +
+                  '<button class="btn btn--approve btn--sm" data-action="approve" data-id="' + esc(w.id) + '">Approve</button>' +
+                  '<button class="btn btn--danger btn--sm" data-action="delete-wt" data-id="' + esc(w.id) + '">Delete</button>' +
+                '</div>' +
+              '</div>';
+            }).join('');
+            el.addEventListener('click', function (ev) {
+              var btn = ev.target.closest('[data-action]');
+              if (!btn) return;
+              var id = btn.dataset.id;
+              if (btn.dataset.action === 'approve') {
+                DB.approveWalkthrough(id).then(loadPending);
+              } else if (btn.dataset.action === 'delete-wt') {
+                if (confirm('Delete this walkthrough?')) DB.deleteWalkthrough(id).then(loadPending);
+              }
+            });
+          });
+        }
+        loadPending();
+
+        // -- Users panel --
+        function renderUsersPanel(users) {
+          var el = document.getElementById('adminPanel-users');
+          if (!el) return;
+          if (!users.length) { el.innerHTML = emptyState('No users found.'); return; }
+          el.innerHTML = '<div class="admin-search"><input id="adminUserSearch" placeholder="Filter by username or name…" /></div>' +
+            '<div id="userList">' + users.map(function (u) {
+              return '<div class="admin-row">' +
+                '<div class="admin-row__body">' +
+                  '<h3>' + esc(u.displayName || u.username) + ' <span class="badge" style="vertical-align:middle">' + esc(u.role || 'Member') + '</span></h3>' +
+                  '<p class="admin-row__meta">@' + esc(u.username) + ' · ' + esc(u.email || '') + ' · joined ' + esc(u.joinedAt) + '</p>' +
+                '</div>' +
+                '<div class="admin-row__actions">' +
+                  (u.role !== 'Admin' ? '<button class="btn btn--danger btn--sm" data-action="delete-user" data-id="' + esc(u.id) + '">Delete</button>' : '') +
+                '</div>' +
+              '</div>';
+            }).join('') + '</div>';
+          document.getElementById('adminUserSearch').addEventListener('input', debounce(function () {
+            var needle = document.getElementById('adminUserSearch').value.trim().toLowerCase();
+            DB.listUsers({ query: needle }).then(function (filtered) { renderUsersPanel(filtered); });
+          }));
+          el.addEventListener('click', function (ev) {
+            var btn = ev.target.closest('[data-action="delete-user"]');
+            if (!btn) return;
+            if (confirm('Delete this user? This cannot be undone.')) {
+              DB.deleteUser(btn.dataset.id).then(function () {
+                DB.listUsers({}).then(renderUsersPanel);
+              });
+            }
+          });
+        }
+        DB.listUsers({}).then(renderUsersPanel);
+
+        // -- Moderation panel --
+        function renderModerationPanel(threads) {
+          var el = document.getElementById('adminPanel-moderation');
+          if (!el) return;
+          if (!threads.length) { el.innerHTML = emptyState('No threads found.'); return; }
+          el.innerHTML = threads.map(function (t) {
+            return '<div class="admin-row">' +
+              '<div class="admin-row__body">' +
+                '<h3><a href="#/thread/' + esc(t.id) + '" style="color:var(--accent-2)">' + esc(t.title) + '</a></h3>' +
+                '<p class="admin-row__meta">' + esc(t.category) + ' · by ' + esc(t.author) + ' · ' + esc(t.createdAt) + ' · ' + (t.replyCount || 0) + ' replies</p>' +
+                '<p class="admin-row__meta" style="margin-top:.2rem;font-style:italic">' + esc((t.body || '').slice(0, 120)) + (t.body && t.body.length > 120 ? '…' : '') + '</p>' +
+              '</div>' +
+              '<div class="admin-row__actions">' +
+                '<button class="btn btn--danger btn--sm" data-action="delete-thread" data-id="' + esc(t.id) + '">Delete thread</button>' +
+              '</div>' +
+            '</div>';
+          }).join('');
+          el.addEventListener('click', function (ev) {
+            var btn = ev.target.closest('[data-action="delete-thread"]');
+            if (!btn) return;
+            if (confirm('Delete this thread and all its replies?')) {
+              DB.deleteThread(btn.dataset.id).then(function () {
+                DB.listThreads().then(renderModerationPanel);
+              });
+            }
+          });
+        }
+        DB.listThreads().then(renderModerationPanel);
+      });
     }
   };
 
   /* ---------- router ---------- */
 
   function setActiveLinks(path) {
-    var map = { '/thread': '/forum', '/new-thread': '/forum', '/account': '/accounts' };
+    var map = {
+      '/thread': '/forum', '/new-thread': '/forum', '/account': '/accounts',
+      '/login': '/', '/register': '/', '/search': '/', '/admin': '/', '/profile': '/'
+    };
     var linkPath = map[path] || path;
     document.querySelectorAll('[data-route-link]').forEach(function (a) {
       a.classList.toggle('is-active', a.dataset.routeLink === linkPath);
@@ -554,19 +901,29 @@ import { isConfigured } from './firebase.js';
 
   searchForm.addEventListener('submit', function (e) {
     e.preventDefault();
-    state.accountQuery = searchInput.value;
-    if (parseHash().path === '/accounts') refreshAccounts();
-    else location.hash = '#/accounts';
+    var q = searchInput.value.trim();
+    if (!q) return;
+    state.siteQuery = q;
+    location.hash = '#/search';
   });
 
   searchInput.addEventListener('input', debounce(function () {
-    state.accountQuery = searchInput.value;
-    if (parseHash().path === '/accounts') refreshAccounts();
-    else if (state.accountQuery.trim()) location.hash = '#/accounts';
+    var q = searchInput.value.trim();
+    if (q.length >= 2) {
+      state.siteQuery = q;
+      if (parseHash().path !== '/search') location.hash = '#/search';
+      else if (views['/search']) views['/search']();
+    }
   }));
 
   document.getElementById('year').textContent = new Date().getFullYear();
   window.addEventListener('hashchange', route);
+
+  // Auth state listener — updates the topbar and re-renders the current view on sign-in/out.
+  onAuthChange(function (user) {
+    currentAuthUser = user;
+    renderAuthArea();
+  });
 
   main.innerHTML = emptyState('Loading…');
   dbReady.then(route, route);
