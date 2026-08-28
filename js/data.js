@@ -295,7 +295,7 @@ const localBackend = {
     const needle = q.trim().toLowerCase();
     if (!needle) return { walkthroughs: [], threads: [], users: [] };
     return {
-      walkthroughs: clone(local.walkthroughs.filter((w) => w.approved && matchesQuery(w, needle)).slice(0, 8)),
+      walkthroughs: clone(local.walkthroughs.filter((w) => w.approved !== false && matchesQuery(w, needle)).slice(0, 8)),
       threads: clone(local.threads.filter((t) => `${t.title} ${t.body}`.toLowerCase().includes(needle)).slice(0, 8)),
       users: clone(local.users.filter((u) => matchesUser(u, needle)).slice(0, 6))
     };
