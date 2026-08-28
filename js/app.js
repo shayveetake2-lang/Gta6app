@@ -346,7 +346,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
               '<p>GTA6 Walkthrough is the community-driven intelligence hub for Grand Theft Auto VI. Built by gamers and speedrunners to provide real-time news, verified mission guides, interactive trophy tracking, and strategy discussions.</p>' +
               '<div class="about-grid">' +
                 '<div class="about-box">' +
-                  '<h3>📰 Live GTA 6 News</h3>' +
+                  '<h3><span class="news-icon" aria-hidden="true">▥</span> Live GTA 6 News</h3>' +
                   '<p>Community and official updates covering launch dates, trailers, map leaks, protagonist analysis, and hardware performance modes.</p>' +
                 '</div>' +
                 '<div class="about-box">' +
