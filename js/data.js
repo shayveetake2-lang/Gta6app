@@ -48,7 +48,16 @@ const LOCAL_PROFILE_KEY = 'gta6.profile.id';
 function loadLocal() {
   try {
     const raw = localStorage.getItem(LOCAL_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const stored = JSON.parse(raw);
+      // Add new editorial seed records without replacing local user data.
+      for (const collection of ['walkthroughs', 'threads']) {
+        if (!Array.isArray(stored[collection])) stored[collection] = [];
+        const existingIds = new Set(stored[collection].map((item) => item.id));
+        stored[collection].push(...SEED[collection].filter((item) => !existingIds.has(item.id)));
+      }
+      return stored;
+    }
   } catch { /* storage unavailable or corrupt */ }
   return clone(SEED);
 }
@@ -154,10 +163,10 @@ const localBackend = {
     saveLocal();
     return clone(achievement);
   },
-  async listWalkthroughs({ difficulty = 'all', query: q = '', includePending = false } = {}) {
+  async listWalkthroughs({ difficulty = 'all', game = 'all', query: q = '', includePending = false } = {}) {
     const needle = q.trim().toLowerCase();
     return clone(local.walkthroughs.filter(
-      (w) => (includePending || w.approved !== false) && (difficulty === 'all' || w.difficulty === difficulty) && matchesQuery(w, needle)
+      (w) => (includePending || w.approved !== false) && (difficulty === 'all' || w.difficulty === difficulty) && (game === 'all' || w.game === game) && matchesQuery(w, needle)
     ));
   },
   async getWalkthrough(id) {
@@ -503,19 +512,21 @@ function firestoreBackend(db) {
       return { id, unlocked, completedAt: unlocked ? today() : null };
     },
 
-    async listWalkthroughs({ difficulty = 'all', query: q = '', includePending = false } = {}) {
+    async listWalkthroughs({ difficulty = 'all', game = 'all', query: q = '', includePending = false } = {}) {
       const snap = await getDocs(query(walkthroughsRef, limit(100)));
       const needle = q.trim().toLowerCase();
-      return snap.docs
+      const published = snap.docs
         .map((d) => ({ id: d.id, ...d.data(), updatedAt: toDateString(d.data().updatedAt) }))
+        .concat(SEED.walkthroughs.filter((item) => item.id.startsWith('gtao-') && !snap.docs.some((d) => d.id === item.id)))
         .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt))
-        .filter((w) => difficulty === 'all' || w.difficulty === difficulty)
+        .filter((w) => (game === 'all' || w.game === game) && (difficulty === 'all' || w.difficulty === difficulty))
         .filter((w) => matchesQuery(w, needle));
+      return published;
     },
 
     async getWalkthrough(id) {
       const snap = await getDoc(doc(db, 'walkthroughs', id));
-      if (!snap.exists()) return null;
+      if (!snap.exists()) return clone(SEED.walkthroughs.find((item) => item.id === id && item.id.startsWith('gtao-')) || null);
       const walkthrough = { id: snap.id, ...snap.data(), updatedAt: toDateString(snap.data().updatedAt) };
       return walkthrough.approved === false ? null : walkthrough;
     },
@@ -524,17 +535,21 @@ function firestoreBackend(db) {
     async listThreads(category) {
       const filters = !category || category === 'all' ? [] : [where('category', '==', category)];
       const snap = await getDocs(query(threadsRef, ...filters, orderBy('createdAt', 'desc'), limit(50)));
-      return snap.docs.map((d) => ({
+      const threads = snap.docs.map((d) => ({
         id: d.id,
         ...d.data(),
         createdAt: toDateString(d.data().createdAt),
         replyCount: d.data().replyCount || 0
       }));
+      return threads
+        .concat(SEED.threads.filter((item) => item.id.startsWith('gtao-') && !snap.docs.some((d) => d.id === item.id)))
+        .filter((thread) => !category || category === 'all' || thread.category === category)
+        .sort((first, second) => second.createdAt.localeCompare(first.createdAt));
     },
 
     async getThread(id) {
       const snap = await getDoc(doc(db, 'threads', id));
-      if (!snap.exists()) return null;
+      if (!snap.exists()) return clone(SEED.threads.find((item) => item.id === id && item.id.startsWith('gtao-')) || null);
       const repliesSnap = await getDocs(
         query(collection(db, 'threads', id, 'replies'), orderBy('createdAt', 'asc'), limit(200))
       );
