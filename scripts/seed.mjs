@@ -54,9 +54,16 @@ async function seed() {
     }
   }
 
+  for (const { id, createdAt, ...newsItem } of (SEED.news || [])) {
+    batch.set(db.doc(`news/${id}`), {
+      ...newsItem,
+      createdAt: ts(createdAt)
+    });
+  }
+
   await batch.commit();
-  const counts = [SEED.users.length, SEED.walkthroughs.length, SEED.threads.length];
-  console.log(`Seeded ${counts[0]} users, ${counts[1]} walkthroughs, ${counts[2]} threads.`);
+  const counts = [SEED.users.length, SEED.walkthroughs.length, SEED.threads.length, (SEED.news || []).length];
+  console.log(`Seeded ${counts[0]} users, ${counts[1]} walkthroughs, ${counts[2]} threads, ${counts[3]} news articles.`);
 }
 
 seed().catch((err) => {

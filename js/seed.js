@@ -186,6 +186,56 @@ export const SEED = {
         { title: 'Check Warehouse 4B', content: 'The shutter door has a small opening on the south side where the vehicle spawns.' }
       ]
     }
+  ],
+  news: [
+    {
+      id: 'news-1',
+      title: 'GTA VI Launch Window & Editions Confirmed for Next-Gen Consoles',
+      category: 'Official',
+      cover: '🌴',
+      source: 'Rockstar Games / Take-Two',
+      author: 'admin',
+      authorUid: 'admin',
+      createdAt: '2026-08-25',
+      summary: 'Grand Theft Auto VI is scheduled to launch worldwide on 19 November 2026 for PlayStation 5 and Xbox Series X|S with Standard and Ultimate editions.',
+      body: 'Rockstar Games and Take-Two Interactive have reaffirmed the release schedule for GTA VI. Digital pre-orders are slated to preload beginning 12 November 2026. The standard edition launches at $79.99 USD, while the Ultimate Edition at $99.99 USD includes bonus story vehicles, weapon wraps, and the Vintage Vice City Pack.'
+    },
+    {
+      id: 'news-2',
+      title: 'Extended Vice City & Leonida Map Overview: Wetlands, Keys & Urban Centers',
+      category: 'Gameplay',
+      cover: '🗺️',
+      source: 'Rockstar Newswire',
+      author: 'mapmaker',
+      authorUid: 'mapmaker',
+      createdAt: '2026-08-22',
+      summary: 'New geographic details reveal the full scope of Leonida, showcasing Vice City metro, Port Gellhorn, Ambrosia, and the Grassrivers wetlands.',
+      body: 'Recent official media updates give us our deepest look yet at the fictional state of Leonida. Vice City acts as the pulsing metropolis, while outer regions like Grassrivers feature dense swamps requiring airboats. Mount Kalaga National Park and the Florida Keys-inspired archipelago offer deep exploration off the beaten path.'
+    },
+    {
+      id: 'news-3',
+      title: 'Lucia and Jason Dual-Protagonist Dynamics & Heist Mechanics Explained',
+      category: 'Gameplay',
+      cover: '🎯',
+      source: 'Community Breakdown',
+      author: 'nova',
+      authorUid: 'nova',
+      createdAt: '2026-08-18',
+      summary: 'How Jason and Lucia’s relationship impacts character switching, combat synergy, safehouse management, and getaway coordination.',
+      body: 'Rockstar has built a seamless character switching mechanic that emphasizes trust between Jason Duval and Lucia Caminos. Missions can be approached with dual-tactics where one character handles stealth/crowd control while the other manages security systems or getaway driving.'
+    },
+    {
+      id: 'news-4',
+      title: 'Rumour Watch: PS5 Pro 60FPS Performance Mode & Ray Tracing Capabilities',
+      category: 'Rumour',
+      cover: '⚡',
+      source: 'Digital Foundry Speculation',
+      author: 'pixelpush',
+      authorUid: 'pixelpush',
+      createdAt: '2026-08-14',
+      summary: 'Technical analysis examines potential resolution modes, PSSR upscaling, and global illumination targets on upgraded hardware.',
+      body: 'Rumours circulating from developer kits suggest Rockstar is targeting an internal 1440p upscaled to 4K at 60 FPS utilizing PlayStation Spectral Super Resolution (PSSR). Ray-traced reflections and global illumination will define the dense neon lighting across Ocean Beach.'
+    }
   ]
 };
 

@@ -14,7 +14,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
   var achievementApi = window.ACHIEVEMENT_API_URL || '';
 
   var authArea = document.getElementById('authArea');
-  var state = { difficulty: 'all', query: '', category: 'all', accountQuery: '', siteQuery: '' };
+  var state = { difficulty: 'all', query: '', category: 'all', accountQuery: '', siteQuery: '', newsCategory: 'all', newsQuery: '' };
 
   /* ---------- auth bar ---------- */
 
@@ -73,7 +73,9 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
 
   function render(html) {
     main.innerHTML = html;
-    main.focus();
+    if (document.activeElement !== searchInput) {
+      main.focus();
+    }
   }
 
   function parseHash() {
@@ -83,6 +85,28 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
   }
 
   /* ---------- shared partials ---------- */
+
+  function newsCard(n) {
+    var catClass = (n.category || 'official').toLowerCase().replace(/[^a-z0-9]/g, '-');
+    var isAdmin = currentProfile && currentProfile.role === 'Admin';
+    var isAuthor = currentProfile && n.authorUid && currentProfile.id === n.authorUid;
+    return '' +
+      '<article class="card card--news" data-news-id="' + esc(n.id) + '">' +
+        '<div class="news-card__body">' +
+          '<div class="news-card__header">' +
+            '<span class="badge badge--' + esc(catClass) + '">' + esc(n.category || 'News') + '</span>' +
+            '<span class="card__meta" style="font-size:.8rem">' + esc(n.createdAt) + '</span>' +
+          '</div>' +
+          '<h3 class="news-card__title">' + (n.cover ? '<span style="margin-right:.4rem;">' + esc(n.cover) + '</span>' : '') + esc(n.title) + '</h3>' +
+          (n.summary ? '<p class="news-card__summary">' + esc(n.summary) + '</p>' : '') +
+          (n.body ? '<div class="news-card__content">' + esc(n.body) + '</div>' : '') +
+          '<div class="news-card__footer">' +
+            '<span>Source: <strong>' + esc(n.source || 'Community') + '</strong> · By @' + esc(n.author || 'guest') + '</span>' +
+            (isAdmin || isAuthor ? '<button class="btn btn--danger btn--sm" data-action="delete-news" data-id="' + esc(n.id) + '" data-title="' + esc(n.title) + '" style="padding:.2rem .55rem;min-height:26px;font-size:.75rem;">Delete</button>' : '') +
+          '</div>' +
+        '</div>' +
+      '</article>';
+  }
 
   function walkthroughCard(w) {
     return '' +
@@ -164,14 +188,14 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
   // Renders a failure instead of leaving a blank section, and stops the chain.
   // Views with a live results container keep their toolbar so filters stay usable.
   function renderError(err) {
-    var target = document.getElementById('guideResults') || document.getElementById('accountResults');
+    var target = document.getElementById('guideResults') || document.getElementById('accountResults') || document.getElementById('newsResults');
     if (target) target.innerHTML = errorState(err);
     else render(errorState(err));
   }
 
   var Data = {};
-  ['listUsers', 'getProfile', 'getCurrentProfile', 'updateProfile', 'listWalkthroughs', 'getWalkthrough', 'listThreads',
-    'getThread', 'createThread', 'createWalkthrough', 'listPendingWalkthroughs', 'approveWalkthrough', 'deletePendingWalkthrough', 'deleteWalkthrough', 'addReply', 'categories', 'listContent'].forEach(function (method) {
+  ['listUsers', 'getProfile', 'getCurrentProfile', 'updateProfile', 'setUserRole', 'listWalkthroughs', 'getWalkthrough', 'listThreads',
+    'getThread', 'createThread', 'createWalkthrough', 'listPendingWalkthroughs', 'approveWalkthrough', 'deletePendingWalkthrough', 'deleteWalkthrough', 'addReply', 'listNews', 'getNews', 'createNews', 'deleteNews', 'categories', 'listContent'].forEach(function (method) {
     Data[method] = function () {
       return DB[method].apply(DB, arguments).catch(function (err) {
         console.error('[db] ' + method + ' failed:', err);
@@ -286,19 +310,24 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
       });
     },
     '/': function () {
-      Promise.all([Data.listWalkthroughs({}), Data.listThreads(), Data.listUsers({})]).then(function (res) {
-        var guides = res[0].slice(0, 3);
-        var threads = res[1].slice(0, 3);
-        var members = res[2].slice(0, 4);
+      Promise.all([Data.listNews({}), Data.listWalkthroughs({}), Data.listThreads(), Data.listUsers({})]).then(function (res) {
+        var news = res[0].slice(0, 3);
+        var guides = res[1].slice(0, 3);
+        var threads = res[2].slice(0, 3);
+        var members = res[3].slice(0, 4);
         render('' +
           '<section class="hero">' +
             '<h1>Every GTA6 walkthrough, in one place.</h1>' +
-            '<p>Step-by-step guides written and reviewed by the community, plus a forum to ask what the guides do not cover.</p>' +
+            '<p>Step-by-step guides written and reviewed by the community, live GTA 6 news updates, plus a forum to discuss theories and strategies.</p>' +
             '<div class="toolbar">' +
               '<a class="btn btn--primary" href="#/walkthroughs">Browse walkthroughs</a>' +
-              '<a class="btn btn--ghost" href="#/forum">Visit the forum</a>' +
+              '<a class="btn btn--ghost" href="#/news">Latest GTA 6 news</a>' +
+              '<a class="btn btn--ghost" href="#/forum">Visit forum</a>' +
             '</div>' +
           '</section>' +
+          '<div class="section-head"><h2>Latest GTA 6 news</h2><a href="#/news">View all news</a></div>' +
+          (news.length ? '<div class="grid">' + news.map(newsCard).join('') + '</div>'
+            : emptyState('No news articles published yet.')) +
           '<div class="section-head"><h2>Latest guides</h2><a href="#/walkthroughs">View all</a></div>' +
           (guides.length ? '<div class="grid">' + guides.map(walkthroughCard).join('') + '</div>'
             : emptyState('No guides published yet.')) +
@@ -307,7 +336,54 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
             : emptyState('No discussions yet — start the first thread.')) +
           '<div class="section-head"><h2>Members</h2><a href="#/accounts">Search accounts</a></div>' +
           (members.length ? '<div class="grid">' + members.map(accountCard).join('') + '</div>'
-            : emptyState('No accounts yet.')));
+            : emptyState('No accounts yet.')) +
+          '<section class="about-section" id="about-section">' +
+            '<div class="about-hero">' +
+              '<h2><span class="brand__mark" aria-hidden="true" style="display:inline-grid;width:28px;height:28px;font-size:.7rem;vertical-align:middle;">G6</span> About GTA6 Walkthrough</h2>' +
+              '<p>GTA6 Walkthrough is the community-driven intelligence hub for Grand Theft Auto VI. Built by gamers and speedrunners to provide real-time news, verified mission guides, interactive trophy tracking, and strategy discussions.</p>' +
+              '<div class="about-grid">' +
+                '<div class="about-box">' +
+                  '<h3>📰 Live GTA 6 News</h3>' +
+                  '<p>Community and official updates covering launch dates, trailers, map leaks, protagonist analysis, and hardware performance modes.</p>' +
+                '</div>' +
+                '<div class="about-box">' +
+                  '<h3>🎮 Verified Guides</h3>' +
+                  '<p>Step-by-step walkthroughs for story missions, side quests, 100% checklists, and secret vehicle locations with difficulty filters.</p>' +
+                '</div>' +
+                '<div class="about-box">' +
+                  '<h3>★ Trophy & Achievement Tracker</h3>' +
+                  '<p>Cross-platform tracker integrating Steam, Xbox Live, and PlayStation Network API synchronization plus custom checklists.</p>' +
+                '</div>' +
+                '<div class="about-box">' +
+                  '<h3>💬 Community Forum</h3>' +
+                  '<p>Real-time threads and discussions where players share strategies, theorycrafting, and hardware optimization tips.</p>' +
+                '</div>' +
+              '</div>' +
+              '<div class="about-disclaimer">' +
+                '<p><strong>Database Backend:</strong> ' + (isConfigured ? 'Live Cloud Firestore' : 'Local offline browser storage (configure keys in js/firebase-config.js to go live)') + '.</p>' +
+                '<p style="margin-top:.35rem;"><strong>Disclaimer & Legal:</strong> Grand Theft Auto, GTA VI, Vice City, and related trademarks belong to Take-Two Interactive Software, Inc. and Rockstar Games. This is an independent community resource.</p>' +
+              '</div>' +
+            '</div>' +
+          '</section>');
+
+        // Hook up delete buttons on home news cards
+        main.querySelectorAll('[data-action="delete-news"]').forEach(function (btn) {
+          btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var id = btn.dataset.id;
+            var title = btn.dataset.title;
+            if (!confirm('Permanently delete news article "' + title + '"?')) return;
+            btn.disabled = true;
+            btn.textContent = 'Deleting…';
+            DB.deleteNews(id).then(function () {
+              views['/']();
+            }).catch(function (err) {
+              alert('Error deleting news: ' + (err.message || err));
+              btn.disabled = false;
+              btn.textContent = 'Delete';
+            });
+          });
+        });
       });
     },
 
@@ -686,13 +762,162 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
       });
     },
 
-    '/about': function () {
+    '/news': function () {
+      var cats = ['all', 'Official', 'Gameplay', 'Rumour', 'Trailer', 'Community'];
+      var canCreate = isConfigured ? isEmailUser() : (currentProfile != null || true);
+
       render('' +
-        '<div class="section-head"><h2>About</h2></div>' +
-        '<div class="sidecard" style="max-width:640px">' +
-          '<p>GTA6 Walkthrough is a community library of game guides backed by a database of walkthroughs, steps and forum threads.</p>' +
-          '<p class="card__meta">Backend: ' + (isConfigured ? 'Cloud Firestore' : 'local browser storage — add your project keys in js/firebase-config.js to go live') + '.</p>' +
+        '<div id="newsStatusMessage"></div>' +
+        '<div class="news-toolbar">' +
+          '<div class="section-head" style="margin:0"><h2>GTA 6 News & Intel</h2><span class="card__meta" id="newsCount"></span></div>' +
+          (canCreate ? '<button class="btn btn--primary" id="createNewsBtn">+ Add News Article</button>' : '<a class="btn btn--ghost" href="#/login">Log in to post news</a>') +
+        '</div>' +
+        '<p class="card__meta" style="margin:-.5rem 0 1.25rem;">The latest official announcements, leaks, breakdowns, and community discoveries across Vice City and Leonida.</p>' +
+        '<form class="toolbar" id="newsSearchForm" role="search">' +
+          '<div class="field field--grow">' +
+            '<label class="sr-only" for="newsSearch">Search news</label>' +
+            '<input type="search" id="newsSearch" placeholder="Search news by title, summary, or source…" autocomplete="off" />' +
+          '</div>' +
+        '</form>' +
+        '<div class="toolbar" id="newsFilters">' + cats.map(function (c) {
+          return '<button class="chip' + (state.newsCategory === c ? ' is-active' : '') + '" data-category="' + esc(c) + '">' +
+            esc(c === 'all' ? 'All' : c) + '</button>';
+        }).join('') + '</div>' +
+        '<div id="newsResults" aria-live="polite">' + emptyState('Loading news…') + '</div>' +
+        '<div class="modal-overlay" id="newsModal" hidden>' +
+          '<div class="modal">' +
+            '<div class="modal__head"><h2>Submit GTA 6 News</h2><button class="modal__close" id="newsModalClose">✕</button></div>' +
+            '<p class="card__meta" style="margin:0 0 1rem">Share verified news, trailer breakdowns, or gameplay findings with the community.</p>' +
+            '<div class="form-error" id="newsError"></div>' +
+            '<form class="stack" id="newsForm">' +
+              '<div class="field"><label for="newsTitle">Headline</label><input id="newsTitle" required maxlength="160" placeholder="e.g. New Trailer Breakdown Reveals Hidden Vice City Locations" /></div>' +
+              '<div style="display:flex;gap:1rem;flex-wrap:wrap;">' +
+                '<div class="field" style="flex:1;min-width:140px;"><label for="newsCategory">Category</label><select id="newsCategory">' +
+                  '<option>Official</option><option>Gameplay</option><option>Rumour</option><option>Trailer</option><option>Community</option>' +
+                '</select></div>' +
+                '<div class="field" style="flex:1;min-width:140px;"><label for="newsCover">Cover Emoji</label><select id="newsCover">' +
+                  '<option value="📰">📰 News</option><option value="🌴">🌴 Vice City</option><option value="🎮">🎮 Gameplay</option><option value="🎯">🎯 Mission/Heist</option><option value="⚡">⚡ Tech/Performance</option><option value="🗺️">🗺️ Map</option><option value="🚗">🚗 Vehicles</option><option value="📻">📻 Soundtrack</option>' +
+                '</select></div>' +
+              '</div>' +
+              '<div class="field"><label for="newsSource">Source / Citation</label><input id="newsSource" placeholder="e.g. Rockstar Games, Take-Two Investor Call, Newswire" /></div>' +
+              '<div class="field"><label for="newsSummary">Summary / Lead</label><textarea id="newsSummary" required maxlength="400" rows="2" placeholder="Brief 1-2 sentence overview of the news…"></textarea></div>' +
+              '<div class="field"><label for="newsBody">Article Content & Details</label><textarea id="newsBody" required rows="6" maxlength="8000" placeholder="Write full details, breakdown points, timestamps, quotes, or sections here…"></textarea></div>' +
+              '<div style="margin-top:1rem;display:flex;justify-content:flex-end;gap:.5rem;">' +
+                '<button type="button" class="btn btn--ghost" id="newsModalCancel">Cancel</button>' +
+                '<button class="btn btn--primary" type="submit">Publish news</button>' +
+              '</div>' +
+            '</form>' +
+          '</div>' +
         '</div>');
+
+      var input = document.getElementById('newsSearch');
+      var results = document.getElementById('newsResults');
+      var count = document.getElementById('newsCount');
+      if (input) input.value = state.newsQuery || '';
+
+      function refreshNews() {
+        Data.listNews({ query: state.newsQuery || '', category: state.newsCategory || 'all' }).then(function (items) {
+          if (!results) return;
+          count.textContent = '(' + items.length + ')';
+          if (!items.length) {
+            results.innerHTML = emptyState(state.newsQuery ? 'No news articles found matching "' + state.newsQuery + '"' : 'No news articles in this category yet.');
+            return;
+          }
+          results.innerHTML = '<div class="grid">' + items.map(newsCard).join('') + '</div>';
+
+          // Hook up delete buttons on news cards
+          results.querySelectorAll('[data-action="delete-news"]').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+              e.stopPropagation();
+              var id = btn.dataset.id;
+              var title = btn.dataset.title;
+              if (!confirm('Permanently delete news article "' + title + '"?')) return;
+              btn.disabled = true;
+              btn.textContent = 'Deleting…';
+              DB.deleteNews(id).then(function () {
+                refreshNews();
+              }).catch(function (err) {
+                alert('Error deleting news: ' + (err.message || err));
+                btn.disabled = false;
+                btn.textContent = 'Delete';
+              });
+            });
+          });
+        });
+      }
+
+      refreshNews();
+
+      if (input) {
+        input.addEventListener('input', debounce(function () {
+          state.newsQuery = input.value.trim().toLowerCase();
+          refreshNews();
+        }));
+      }
+
+      document.getElementById('newsSearchForm').addEventListener('submit', function (e) { e.preventDefault(); });
+
+      document.getElementById('newsFilters').addEventListener('click', function (e) {
+        var chip = e.target.closest('.chip');
+        if (!chip) return;
+        state.newsCategory = chip.dataset.category;
+        document.querySelectorAll('#newsFilters .chip').forEach(function (c) { c.classList.toggle('is-active', c === chip); });
+        refreshNews();
+      });
+
+      var newsModal = document.getElementById('newsModal');
+      var createBtn = document.getElementById('createNewsBtn');
+      if (createBtn) {
+        createBtn.addEventListener('click', function () {
+          newsModal.hidden = false;
+          document.getElementById('newsError').classList.remove('is-visible');
+        });
+        document.getElementById('newsModalClose').addEventListener('click', function () { newsModal.hidden = true; });
+        document.getElementById('newsModalCancel').addEventListener('click', function () { newsModal.hidden = true; });
+
+        document.getElementById('newsForm').addEventListener('submit', function (e) {
+          e.preventDefault();
+          var btn = e.target.querySelector('[type="submit"]');
+          var errEl = document.getElementById('newsError');
+          errEl.classList.remove('is-visible');
+          btn.disabled = true;
+          btn.textContent = 'Publishing…';
+
+          DB.createNews({
+            title: document.getElementById('newsTitle').value.trim(),
+            category: document.getElementById('newsCategory').value,
+            cover: document.getElementById('newsCover').value,
+            source: document.getElementById('newsSource').value.trim(),
+            summary: document.getElementById('newsSummary').value.trim(),
+            body: document.getElementById('newsBody').value.trim()
+          }).then(function () {
+            newsModal.hidden = true;
+            e.target.reset();
+            btn.disabled = false;
+            btn.textContent = 'Publish news';
+            var statusDiv = document.getElementById('newsStatusMessage');
+            if (statusDiv) {
+              statusDiv.innerHTML = '<div class="form-success is-visible" style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;">' +
+                '<span>✅ News article published successfully! It is now live in the database.</span>' +
+                '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.2rem;">✕</button></div>';
+            }
+            refreshNews();
+          }).catch(function (err) {
+            errEl.textContent = err.message || 'Could not publish news.';
+            errEl.classList.add('is-visible');
+            btn.disabled = false;
+            btn.textContent = 'Publish news';
+          });
+        });
+      }
+    },
+
+    '/about': function () {
+      location.hash = '#/';
+      setTimeout(function () {
+        var el = document.getElementById('about-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     },
 
     '/register': function () {
@@ -777,18 +1002,33 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
     '/search': function () {
       var q = state.siteQuery || searchInput.value.trim();
       state.siteQuery = q;
-      searchInput.value = q;
+      if (searchInput.value !== q && document.activeElement !== searchInput) {
+        searchInput.value = q;
+      }
       
       if (!q) {
-        render('<div class="section-head"><h2>Search</h2></div>' + emptyState('Type something in the search bar above.'));
+        render('<div class="section-head"><h2>Search</h2></div>' + emptyState('Type something in the search bar above to search across walkthroughs, news, forum threads, and accounts.'));
         return;
       }
       render('<div class="section-head"><h2>Results for "<em>' + esc(q) + '</em>"</h2></div>' +
         '<div id="searchResults" aria-live="polite">' + emptyState('Searching…') + '</div>');
       DB.siteSearch(q).then(function (res) {
         var html = '';
-        if (res.walkthroughs.length) {
-          html += '<div class="search-section"><h3>Walkthroughs</h3>' +
+        if (res.news && res.news.length) {
+          html += '<div class="search-section"><h3>News & Announcements (' + res.news.length + ')</h3>' +
+            res.news.map(function (n) {
+              var catClass = (n.category || 'news').toLowerCase().replace(/[^a-z0-9]/g, '-');
+              return '<a class="search-hit" href="#/news">' +
+                '<span class="search-hit__icon">' + esc(n.cover || '📰') + '</span>' +
+                '<div class="search-hit__body">' +
+                  '<p class="search-hit__title">' + esc(n.title) + '</p>' +
+                  '<p class="search-hit__meta"><span class="badge badge--' + esc(catClass) + '" style="margin-right:.4rem;padding:.1rem .4rem;font-size:.68rem;">' + esc(n.category || 'News') + '</span>by @' + esc(n.author || 'guest') + ' · ' + esc(n.createdAt) + '</p>' +
+                '</div>' +
+              '</a>';
+            }).join('') + '</div>';
+        }
+        if (res.walkthroughs && res.walkthroughs.length) {
+          html += '<div class="search-section"><h3>Walkthroughs (' + res.walkthroughs.length + ')</h3>' +
             res.walkthroughs.map(function (w) {
               return '<a class="search-hit" href="#/walkthroughs/' + esc(w.id) + '">' +
                 '<span class="search-hit__icon">' + esc(w.cover || '🎮') + '</span>' +
@@ -799,8 +1039,8 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
               '</a>';
             }).join('') + '</div>';
         }
-        if (res.threads.length) {
-          html += '<div class="search-section"><h3>Forum threads</h3>' +
+        if (res.threads && res.threads.length) {
+          html += '<div class="search-section"><h3>Forum threads (' + res.threads.length + ')</h3>' +
             res.threads.map(function (t) {
               return '<a class="search-hit" href="#/thread/' + esc(t.id) + '">' +
                 '<span class="search-hit__icon">💬</span>' +
@@ -811,8 +1051,8 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
               '</a>';
             }).join('') + '</div>';
         }
-        if (res.users.length) {
-          html += '<div class="search-section"><h3>Members</h3>' +
+        if (res.users && res.users.length) {
+          html += '<div class="search-section"><h3>Members (' + res.users.length + ')</h3>' +
             res.users.map(function (u) {
               return '<a class="search-hit" href="#/account/' + esc(u.id) + '">' +
                 '<span class="search-hit__icon">👤</span>' +
@@ -824,7 +1064,8 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
             }).join('') + '</div>';
         }
         if (!html) html = emptyState('No results found for "' + esc(q) + '".');
-        document.getElementById('searchResults').innerHTML = html;
+        var resultsEl = document.getElementById('searchResults');
+        if (resultsEl) resultsEl.innerHTML = html;
       }).catch(function (err) {
         var el = document.getElementById('searchResults');
         if (el) el.innerHTML = errorState(err);
@@ -833,7 +1074,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
 
     '/admin': function () {
       // Gate: only email-authenticated users with Admin role can see this.
-      if (!isEmailUser()) {
+      if (!isEmailUser() && isConfigured) {
         render('<div class="section-head"><h2>Admin</h2></div>' +
           emptyState('You must be logged in to access the admin dashboard.') +
           '<div class="toolbar" style="justify-content:center;margin-top:1rem">' +
@@ -851,11 +1092,13 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
           '<div class="admin-tabs">' +
             '<button class="admin-tab is-active" data-tab="pending">Pending walkthroughs</button>' +
             '<button class="admin-tab" data-tab="walkthroughs">Live walkthroughs</button>' +
+            '<button class="admin-tab" data-tab="news">News management</button>' +
             '<button class="admin-tab" data-tab="moderation">Forum moderation</button>' +
             '<button class="admin-tab" data-tab="users">User management</button>' +
           '</div>' +
           '<div id="adminPanel-pending" class="admin-panel is-active"><p class="empty">Loading…</p></div>' +
           '<div id="adminPanel-walkthroughs" class="admin-panel"><p class="empty">Loading…</p></div>' +
+          '<div id="adminPanel-news" class="admin-panel"><p class="empty">Loading…</p></div>' +
           '<div id="adminPanel-moderation" class="admin-panel"><p class="empty">Loading…</p></div>' +
           '<div id="adminPanel-users" class="admin-panel"><p class="empty">Loading…</p></div>');
 
@@ -1025,7 +1268,78 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
         loadPublished();
 
         // ==========================================
-        // 3. Forum Moderation Panel (Threads)
+        // 3. News Management Panel
+        // ==========================================
+        var newsStatusMsg = '';
+        function renderAdminNewsPanel(items) {
+          var el = document.getElementById('adminPanel-news');
+          if (!el) return;
+          var alertHtml = newsStatusMsg ? newsStatusMsg : '';
+          var searchHtml = '<div class="admin-search"><input id="adminNewsSearch" placeholder="Search news by title, category, author, or source…" /></div>';
+
+          if (!items.length) {
+            el.innerHTML = alertHtml + searchHtml + emptyState('No news articles found.');
+            setupAdminNewsSearch();
+            return;
+          }
+
+          el.innerHTML = alertHtml + searchHtml +
+            '<div class="stack">' + items.map(function (n) {
+              var catClass = (n.category || 'official').toLowerCase().replace(/[^a-z0-9]/g, '-');
+              return '<div class="admin-row">' +
+                '<div class="admin-row__body">' +
+                  '<h3>' + (n.cover ? esc(n.cover) + ' ' : '') + esc(n.title) + ' <span class="badge badge--' + esc(catClass) + '" style="vertical-align:middle;margin-left:.3rem;">' + esc(n.category || 'Official') + '</span></h3>' +
+                  '<p class="admin-row__meta">By <strong>@' + esc(n.author) + '</strong> · Source: ' + esc(n.source || 'Community') + ' · ' + esc(n.createdAt) + '</p>' +
+                  '<p class="admin-row__meta" style="margin-top:.25rem">' + esc(n.summary || '') + '</p>' +
+                '</div>' +
+                '<div class="admin-row__actions">' +
+                  '<a class="btn btn--ghost btn--sm" href="#/news">View page</a>' +
+                  '<button class="btn btn--danger btn--sm" data-action="delete-admin-news" data-id="' + esc(n.id) + '" data-title="' + esc(n.title) + '">Remove news</button>' +
+                '</div>' +
+              '</div>';
+            }).join('') + '</div>';
+
+          setupAdminNewsSearch();
+
+          el.querySelectorAll('[data-action="delete-admin-news"]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var id = btn.dataset.id;
+              var title = btn.dataset.title;
+              if (!confirm('Permanently remove news article "' + title + '" from the database?')) return;
+              btn.disabled = true;
+              btn.textContent = 'Removing…';
+              DB.deleteNews(id).then(function () {
+                newsStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fff;">' +
+                  '<div style="font-weight:bold;color:#f87171;font-size:.92rem;">🗑️ News Article Removed</div>' +
+                  '<p style="margin:0;font-size:.88rem;color:var(--text);">“' + esc(title) + '” was deleted from the database.</p>' +
+                '</div>';
+                loadAdminNews();
+              }).catch(function (err) {
+                newsStatusMsg = '<div class="admin-notice form-error is-visible" style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;">' +
+                  '<span>Error removing news: ' + esc(err.message || err) + '</span>' +
+                  '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.2rem;">✕</button></div>';
+                loadAdminNews();
+              });
+            });
+          });
+        }
+
+        function setupAdminNewsSearch() {
+          var input = document.getElementById('adminNewsSearch');
+          if (!input) return;
+          input.addEventListener('input', debounce(function () {
+            var needle = input.value.trim().toLowerCase();
+            DB.listNews({ query: needle }).then(renderAdminNewsPanel);
+          }));
+        }
+
+        function loadAdminNews() {
+          DB.listNews({}).then(renderAdminNewsPanel);
+        }
+        loadAdminNews();
+
+        // ==========================================
+        // 4. Forum Moderation Panel (Threads)
         // ==========================================
         var moderationStatusMsg = '';
         function renderModerationPanel(threads) {
@@ -1104,46 +1418,114 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
         loadThreads();
 
         // ==========================================
-        // 4. Users Panel
+        // 5. Users Panel (with Admin Promotion & Demotion)
         // ==========================================
+        var userStatusMsg = '';
         function renderUsersPanel(users) {
           var el = document.getElementById('adminPanel-users');
           if (!el) return;
+          var alertHtml = userStatusMsg ? userStatusMsg : '';
+          var searchHtml = '<div class="admin-search"><input id="adminUserSearch" placeholder="Filter by username or name…" /></div>';
+          
           if (!users.length) {
-            el.innerHTML = '<div class="admin-search"><input id="adminUserSearch" placeholder="Filter by username or name…" /></div>' + emptyState('No users found.');
+            el.innerHTML = alertHtml + searchHtml + emptyState('No users found.');
             setupUserSearch();
             return;
           }
-          el.innerHTML = '<div class="admin-search"><input id="adminUserSearch" placeholder="Filter by username or name…" /></div>' +
+          el.innerHTML = alertHtml + searchHtml +
             '<div id="userList" class="stack">' + users.map(function (u) {
+              var isCurrent = (currentProfile && (u.id === currentProfile.id || u.username === currentProfile.username));
+              var isAdminUser = (u.role === 'Admin');
+              var roleBadgeClass = isAdminUser ? 'badge--admin' : 'badge--general';
+              
+              var roleActions = '';
+              if (!isCurrent) {
+                if (isAdminUser) {
+                  roleActions += '<button class="btn btn--demote btn--sm" data-action="remove-admin" data-id="' + esc(u.id) + '" data-username="' + esc(u.username) + '">Remove Admin</button>';
+                } else {
+                  roleActions += '<button class="btn btn--promote btn--sm" data-action="make-admin" data-id="' + esc(u.id) + '" data-username="' + esc(u.username) + '">Make Admin</button>';
+                }
+                roleActions += '<button class="btn btn--danger btn--sm" data-action="delete-user" data-id="' + esc(u.id) + '" data-username="' + esc(u.username) + '">Delete user</button>';
+              } else {
+                roleActions += '<span class="card__meta" style="font-size:.8rem;font-style:italic;align-self:center;">(Current session)</span>';
+              }
+
               return '<div class="admin-row">' +
                 '<div class="admin-row__body">' +
-                  '<h3>' + esc(u.displayName || u.username) + ' <span class="badge" style="vertical-align:middle">' + esc(u.role || 'Member') + '</span></h3>' +
-                  '<p class="admin-row__meta">@' + esc(u.username) + ' · ' + esc(u.email || '') + ' · joined ' + esc(u.joinedAt) + '</p>' +
+                  '<h3>' + esc(u.displayName || u.username) + ' <span class="badge ' + roleBadgeClass + '" style="vertical-align:middle;margin-left:.3rem;">' + esc(u.role || 'Member') + '</span></h3>' +
+                  '<p class="admin-row__meta">@' + esc(u.username) + (u.email ? ' · ' + esc(u.email) : '') + ' · joined ' + esc(u.joinedAt) + '</p>' +
                 '</div>' +
                 '<div class="admin-row__actions">' +
-                  (u.role !== 'Admin' ? '<button class="btn btn--danger btn--sm" data-action="delete-user" data-id="' + esc(u.id) + '" data-username="' + esc(u.username) + '">Delete user</button>' : '') +
+                  roleActions +
                 '</div>' +
               '</div>';
             }).join('') + '</div>';
 
           setupUserSearch();
 
+          el.querySelectorAll('[data-action="make-admin"]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var id = btn.dataset.id;
+              var username = btn.dataset.username;
+              if (!confirm('Promote @' + username + ' to Admin? They will have full administrative access until an admin revokes it.')) return;
+              btn.disabled = true;
+              btn.textContent = 'Updating…';
+              DB.setUserRole(id, 'Admin').then(function () {
+                userStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#fff;">' +
+                  '<div style="font-weight:bold;color:#4ade80;font-size:.92rem;">👑 Admin Role Granted</div>' +
+                  '<p style="margin:0;font-size:.88rem;color:var(--text);"><strong>@' + esc(username) + '</strong> is now an Admin with full administrative privileges.</p>' +
+                '</div>';
+                loadUsers();
+              }).catch(function (err) {
+                userStatusMsg = '<div class="admin-notice form-error is-visible" style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;">' +
+                  '<span>Error promoting user: ' + esc(err.message || err) + '</span>' +
+                  '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.2rem;">✕</button></div>';
+                loadUsers();
+              });
+            });
+          });
+
+          el.querySelectorAll('[data-action="remove-admin"]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var id = btn.dataset.id;
+              var username = btn.dataset.username;
+              if (!confirm('Remove Admin role from @' + username + '? They will be demoted to Member.')) return;
+              btn.disabled = true;
+              btn.textContent = 'Updating…';
+              DB.setUserRole(id, 'Member').then(function () {
+                userStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(245,158,11,0.15);border:1px solid #f59e0b;color:#fff;">' +
+                  '<div style="font-weight:bold;color:#fbbf24;font-size:.92rem;">👤 Admin Role Removed</div>' +
+                  '<p style="margin:0;font-size:.88rem;color:var(--text);"><strong>@' + esc(username) + '</strong> has been reverted to Member.</p>' +
+                '</div>';
+                loadUsers();
+              }).catch(function (err) {
+                userStatusMsg = '<div class="admin-notice form-error is-visible" style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;">' +
+                  '<span>Error updating user role: ' + esc(err.message || err) + '</span>' +
+                  '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.2rem;">✕</button></div>';
+                loadUsers();
+              });
+            });
+          });
+
           el.querySelectorAll('[data-action="delete-user"]').forEach(function (btn) {
             btn.addEventListener('click', function () {
               var id = btn.dataset.id;
               var username = btn.dataset.username;
-              if (confirm('Delete user @' + username + '? This cannot be undone.')) {
-                btn.disabled = true;
-                btn.textContent = 'Deleting…';
-                DB.deleteUser(id).then(function () {
-                  DB.listUsers({}).then(renderUsersPanel);
-                }).catch(function (err) {
-                  alert('Error deleting user: ' + (err.message || err));
-                  btn.disabled = false;
-                  btn.textContent = 'Delete user';
-                });
-              }
+              if (!confirm('Delete user @' + username + '? This cannot be undone.')) return;
+              btn.disabled = true;
+              btn.textContent = 'Deleting…';
+              DB.deleteUser(id).then(function () {
+                userStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fff;">' +
+                  '<div style="font-weight:bold;color:#f87171;font-size:.92rem;">🗑️ User Deleted</div>' +
+                  '<p style="margin:0;font-size:.88rem;color:var(--text);">User @' + esc(username) + ' was permanently deleted.</p>' +
+                '</div>';
+                loadUsers();
+              }).catch(function (err) {
+                userStatusMsg = '<div class="admin-notice form-error is-visible" style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;">' +
+                  '<span>Error deleting user: ' + esc(err.message || err) + '</span>' +
+                  '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.2rem;">✕</button></div>';
+                loadUsers();
+              });
             });
           });
         }
@@ -1157,7 +1539,10 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
           }));
         }
 
-        DB.listUsers({}).then(renderUsersPanel);
+        function loadUsers() {
+          DB.listUsers({}).then(renderUsersPanel);
+        }
+        loadUsers();
       });
     }
   };
@@ -1167,7 +1552,8 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
   function setActiveLinks(path) {
     var map = {
       '/thread': '/forum', '/new-thread': '/forum', '/account': '/accounts',
-      '/login': '/', '/register': '/', '/search': '/', '/admin': '/', '/profile': '/'
+      '/login': '/', '/register': '/', '/search': '/', '/admin': '/', '/profile': '/',
+      '/about': '/'
     };
     var linkPath = map[path] || path;
     document.querySelectorAll('[data-route-link]').forEach(function (a) {
@@ -1177,10 +1563,13 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
 
   function route() {
     var r = parseHash();
+    var isSearchTyping = document.activeElement === searchInput;
     var view = views[r.path] || views['/'];
     setActiveLinks(views[r.path] ? r.path : '/');
     closeMenu();
-    window.scrollTo(0, 0);
+    if (!isSearchTyping) {
+      window.scrollTo(0, 0);
+    }
     view(r.id);
   }
 
@@ -1225,17 +1614,33 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
     var q = searchInput.value.trim();
     if (!q) return;
     state.siteQuery = q;
-    location.hash = '#/search';
+    if (parseHash().path !== '/search') location.hash = '#/search';
+    else if (views['/search']) views['/search']();
   });
 
   searchInput.addEventListener('input', debounce(function () {
-    var q = searchInput.value.trim();
-    if (q.length >= 2) {
-      state.siteQuery = q;
-      if (parseHash().path !== '/search') location.hash = '#/search';
-      else if (views['/search']) views['/search']();
+    var q = searchInput.value;
+    state.siteQuery = q.trim();
+    if (q.trim().length >= 1) {
+      var currentPath = parseHash().path;
+      if (currentPath !== '/search') {
+        var start = searchInput.selectionStart;
+        var end = searchInput.selectionEnd;
+        location.hash = '#/search';
+        // Ensure searchInput preserves focus and cursor position after hash change and render
+        setTimeout(function () {
+          searchInput.focus();
+          if (start !== null && end !== null) {
+            try { searchInput.setSelectionRange(start, end); } catch (err) {}
+          }
+        }, 0);
+      } else if (views['/search']) {
+        views['/search']();
+      }
+    } else if (parseHash().path === '/search') {
+      if (views['/search']) views['/search']();
     }
-  }));
+  }, 120));
 
   document.getElementById('year').textContent = new Date().getFullYear();
   window.addEventListener('hashchange', route);

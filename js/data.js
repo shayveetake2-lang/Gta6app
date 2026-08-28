@@ -35,6 +35,11 @@ function matchesUser(u, needle) {
   return `${u.username} ${u.displayName} ${u.bio || ''} ${u.location || ''}`.toLowerCase().includes(needle);
 }
 
+function matchesNews(n, needle) {
+  if (!needle) return true;
+  return `${n.title} ${n.summary || ''} ${n.body || ''} ${n.source || ''} ${n.category || ''} ${n.author || ''}`.toLowerCase().includes(needle);
+}
+
 /* -------------------------------------------------------- local (fallback) */
 
 const LOCAL_KEY = 'gta6.db.v2';
@@ -64,6 +69,11 @@ function localManualAchievements() {
 function localPendingWalkthroughs() {
   if (!Array.isArray(local.pendingWalkthroughs)) local.pendingWalkthroughs = [];
   return local.pendingWalkthroughs;
+}
+
+function localNews() {
+  if (!Array.isArray(local.news)) local.news = clone(SEED.news || []);
+  return local.news;
 }
 
 const localBackend = {
@@ -305,13 +315,58 @@ const localBackend = {
     saveLocal();
     return clone(thread);
   },
+  async setUserRole(id, role) {
+    const user = local.users.find((u) => u.id === id || u.username === id);
+    if (!user) throw new Error('User not found.');
+    user.role = role;
+    saveLocal();
+    return clone(user);
+  },
+  async listNews({ category = 'all', query: q = '' } = {}) {
+    const needle = q.trim().toLowerCase();
+    const allNews = localNews();
+    return clone(
+      allNews
+        .filter((n) => (category === 'all' || (n.category || '').toLowerCase() === category.toLowerCase()) && matchesNews(n, needle))
+        .sort((first, second) => (second.createdAt || '').localeCompare(first.createdAt || ''))
+    );
+  },
+  async getNews(id) {
+    return clone(localNews().find((n) => n.id === id) || null);
+  },
+  async createNews({ title, category, cover, source, summary, body }) {
+    const user = await this.getCurrentProfile();
+    const item = {
+      id: uid('news'),
+      title: (title || '').trim(),
+      category: category || 'Official',
+      cover: cover || '📰',
+      source: (source || 'Community').trim(),
+      summary: (summary || '').trim(),
+      body: (body || '').trim(),
+      author: user ? user.username : 'guest',
+      authorUid: user ? user.id : null,
+      createdAt: today()
+    };
+    localNews().unshift(item);
+    saveLocal();
+    return clone(item);
+  },
+  async deleteNews(id) {
+    const newsList = localNews();
+    const idx = newsList.findIndex((n) => n.id === id);
+    if (idx === -1) throw new Error('News item not found.');
+    newsList.splice(idx, 1);
+    saveLocal();
+  },
   async siteSearch(q) {
     const needle = q.trim().toLowerCase();
-    if (!needle) return { walkthroughs: [], threads: [], users: [] };
+    if (!needle) return { walkthroughs: [], threads: [], users: [], news: [] };
     return {
       walkthroughs: clone(local.walkthroughs.filter((w) => w.approved !== false && matchesQuery(w, needle)).slice(0, 8)),
       threads: clone(local.threads.filter((t) => `${t.title} ${t.body}`.toLowerCase().includes(needle)).slice(0, 8)),
-      users: clone(local.users.filter((u) => matchesUser(u, needle)).slice(0, 6))
+      users: clone(local.users.filter((u) => matchesUser(u, needle)).slice(0, 6)),
+      news: clone(localNews().filter((n) => matchesNews(n, needle)).slice(0, 6))
     };
   }
 };
@@ -323,6 +378,7 @@ function firestoreBackend(db) {
   const walkthroughsRef = collection(db, 'walkthroughs');
   const pendingWalkthroughsRef = collection(db, 'pendingWalkthroughs');
   const usersRef = collection(db, 'users');
+  const newsRef = collection(db, 'news');
 
   return {
     async listUsers({ query: q = '' } = {}) {
@@ -656,20 +712,64 @@ function firestoreBackend(db) {
       await updateDoc(doc(db, 'threads', threadId), { replyCount: increment(-1) });
     },
 
-    async editThread(id, { title, body }) {
-      const fields = {};
-      if (title !== undefined) fields.title = title;
-      if (body !== undefined) fields.body = body;
-      await updateDoc(doc(db, 'threads', id), fields);
+    async setUserRole(id, role) {
+      await updateDoc(doc(db, 'users', id), { role: role });
+      return { id, role };
+    },
+
+    async listNews({ category = 'all', query: q = '' } = {}) {
+      const snap = await getDocs(query(newsRef, orderBy('createdAt', 'desc'), limit(100)));
+      const needle = q.trim().toLowerCase();
+      return snap.docs
+        .map((d) => ({
+          id: d.id,
+          ...d.data(),
+          createdAt: toDateString(d.data().createdAt)
+        }))
+        .filter((n) => (category === 'all' || (n.category || '').toLowerCase() === category.toLowerCase()) && matchesNews(n, needle));
+    },
+
+    async getNews(id) {
+      const snap = await getDoc(doc(db, 'news', id));
+      if (!snap.exists()) return null;
+      return {
+        id: snap.id,
+        ...snap.data(),
+        createdAt: toDateString(snap.data().createdAt)
+      };
+    },
+
+    async createNews({ title, category, cover, source, summary, body }) {
+      const user = getUser();
+      const profile = await this.getCurrentProfile();
+      const author = profile ? profile.username : displayName();
+      const item = {
+        title: (title || '').trim(),
+        category: category || 'Official',
+        cover: cover || '📰',
+        source: (source || 'Community').trim(),
+        summary: (summary || '').trim(),
+        body: (body || '').trim(),
+        author: author,
+        authorUid: user ? user.uid : null,
+        createdAt: serverTimestamp()
+      };
+      const ref = await addDoc(newsRef, item);
+      return { id: ref.id, ...item, createdAt: today() };
+    },
+
+    async deleteNews(id) {
+      await deleteDoc(doc(db, 'news', id));
     },
 
     async siteSearch(q) {
       const needle = q.trim().toLowerCase();
-      if (!needle) return { walkthroughs: [], threads: [], users: [] };
-      const [wtSnap, thSnap, usersSnap] = await Promise.all([
+      if (!needle) return { walkthroughs: [], threads: [], users: [], news: [] };
+      const [wtSnap, thSnap, usersSnap, newsSnap] = await Promise.all([
         getDocs(query(walkthroughsRef, orderBy('updatedAt', 'desc'), limit(100))),
         getDocs(query(threadsRef, orderBy('createdAt', 'desc'), limit(200))),
-        getDocs(query(usersRef, orderBy('usernameLower'), limit(200)))
+        getDocs(query(usersRef, orderBy('usernameLower'), limit(200))),
+        getDocs(query(newsRef, orderBy('createdAt', 'desc'), limit(100)))
       ]);
       return {
         walkthroughs: wtSnap.docs
@@ -680,7 +780,10 @@ function firestoreBackend(db) {
           .filter((t) => `${t.title} ${t.body}`.toLowerCase().includes(needle)).slice(0, 8),
         users: usersSnap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((u) => matchesUser(u, needle)).slice(0, 6)
+          .filter((u) => matchesUser(u, needle)).slice(0, 6),
+        news: newsSnap.docs
+          .map((d) => ({ id: d.id, ...d.data(), createdAt: toDateString(d.data().createdAt) }))
+          .filter((n) => matchesNews(n, needle)).slice(0, 6)
       };
     }
   };
@@ -704,6 +807,7 @@ export const DB = {
   getProfile: (id) => backend.getProfile(id),
   getCurrentProfile: () => backend.getCurrentProfile(),
   updateProfile: (input) => backend.updateProfile(input),
+  setUserRole: (id, role) => backend.setUserRole(id, role),
   createUser: (input) => backend.createUser(input),
   createUserWithAuth: (input) => backend.createUserWithAuth(input),
   loginWithUsernameOrEmail: (input) => backend.loginWithUsernameOrEmail(input),
@@ -728,6 +832,10 @@ export const DB = {
   deleteThread: (id) => backend.deleteThread(id),
   deleteReply: (threadId, replyId) => backend.deleteReply(threadId, replyId),
   editThread: (id, fields) => backend.editThread(id, fields),
+  listNews: (opts) => backend.listNews(opts),
+  getNews: (id) => backend.getNews(id),
+  createNews: (input) => backend.createNews(input),
+  deleteNews: (id) => backend.deleteNews(id),
   siteSearch: (q) => backend.siteSearch(q),
   categories: async () => CATEGORIES.slice(),
   listTrophies: async () => clone(TROPHIES),
