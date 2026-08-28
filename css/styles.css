@@ -84,6 +84,7 @@ textarea:focus-visible,
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
   padding-top: env(safe-area-inset-top);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
 .topbar__inner {
@@ -241,8 +242,10 @@ main { padding: 1.25rem 0 2.5rem; }
   display: flex;
   flex-direction: column;
   transition: transform .15s ease, border-color .15s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.03);
 }
-.card:hover { transform: translateY(-3px); border-color: var(--accent); }
+.card:hover { transform: translateY(-3px); border-color: var(--accent);   box-shadow: 0 8px 16px rgba(0,0,0,0.06);
+}
 .card__media {
   aspect-ratio: 16 / 9;
   background: linear-gradient(135deg, var(--surface-2), var(--border));
@@ -291,8 +294,11 @@ main { padding: 1.25rem 0 2.5rem; }
   font-weight: 600;
   cursor: pointer;
   min-height: 44px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
-.btn:hover { background: var(--surface-2); }
+.btn:hover { background: var(--surface-2);   box-shadow: 0 3px 6px rgba(0,0,0,0.1); transform: translateY(-1px);
+}
 .btn--primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: 0 0 18px rgba(255, 0, 127, .34); }
 .btn--primary:hover { filter: brightness(1.08); background: var(--accent); }
 .btn--ghost { background: transparent; border-color: var(--accent-2); color: var(--accent-2); }
@@ -671,3 +677,7 @@ main { padding: 1.25rem 0 2.5rem; }
 
 /* ---------- News badge ---------- */
 .badge--news { background: #1a2e3d; color: #7ec8e3; }
+
+/* Admin Panel Navbar Polish */
+a[href="#/admin"] { text-transform: uppercase; letter-spacing: 0.5px; }
+a[href="#/admin"]:hover { text-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 50%, transparent); }
