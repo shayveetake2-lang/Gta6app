@@ -7,6 +7,7 @@
     "check": "node --check api/server.mjs scripts/seed.mjs",
     "api": "node api/server.mjs",
     "seed": "node scripts/seed.mjs",
+    "provision-admins": "node scripts/provision-admins.mjs",
     "deploy": "firebase deploy --only firestore:rules,firestore:indexes,hosting",
     "emulate": "firebase emulators:start"
   },

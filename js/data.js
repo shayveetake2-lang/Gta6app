@@ -137,11 +137,40 @@ const localBackend = {
     saveLocal();
     return clone(achievement);
   },
-  async listWalkthroughs({ difficulty = 'all', query: q = '' } = {}) {
+  async listWalkthroughs({ difficulty = 'all', query: q = '', includePending = false } = {}) {
     const needle = q.trim().toLowerCase();
     return clone(local.walkthroughs.filter(
-      (w) => (difficulty === 'all' || w.difficulty === difficulty) && matchesQuery(w, needle)
+      (w) => (includePending || w.approved !== false) && (difficulty === 'all' || w.difficulty === difficulty) && matchesQuery(w, needle)
     ));
+  },
+  async createWalkthrough(input) {
+    const author = await this.getCurrentProfile();
+    const walkthrough = {
+      id: uid('wt'), title: input.title.trim(), game: 'GTA 6', difficulty: input.difficulty,
+      duration: Number(input.duration), author: author.username, authorUid: author.id,
+      likes: 0, updatedAt: today(), cover: input.cover.trim() || '📖',
+      summary: input.summary.trim(), tags: input.tags, steps: input.steps, approved: false
+    };
+    local.walkthroughs.unshift(walkthrough);
+    saveLocal();
+    return clone(walkthrough);
+  },
+  async listPendingWalkthroughs() {
+    return clone(local.walkthroughs.filter((w) => w.approved === false));
+  },
+  async approveWalkthrough(id) {
+    const walkthrough = local.walkthroughs.find((w) => w.id === id);
+    if (!walkthrough) throw new Error('Walkthrough not found');
+    walkthrough.approved = true;
+    saveLocal();
+    return clone(walkthrough);
+  },
+  async deleteWalkthrough(id) {
+    const index = local.walkthroughs.findIndex((w) => w.id === id);
+    if (index === -1) throw new Error('Walkthrough not found');
+    const [walkthrough] = local.walkthroughs.splice(index, 1);
+    saveLocal();
+    return clone(walkthrough);
   },
   async getWalkthrough(id) {
     return clone(local.walkthroughs.find((w) => w.id === id) || null);
@@ -398,19 +427,48 @@ function firestoreBackend(db) {
       return { id, unlocked, completedAt: unlocked ? today() : null };
     },
 
-    async listWalkthroughs({ difficulty = 'all', query: q = '' } = {}) {
-      const filters = difficulty === 'all' ? [] : [where('difficulty', '==', difficulty)];
-      const snap = await getDocs(query(walkthroughsRef, ...filters, orderBy('updatedAt', 'desc'), limit(100)));
+    async listWalkthroughs({ difficulty = 'all', query: q = '', includePending = false } = {}) {
+      const filters = includePending ? [] : [where('approved', '==', true)];
+      const snap = await getDocs(query(walkthroughsRef, ...filters, limit(100)));
       const needle = q.trim().toLowerCase();
       return snap.docs
         .map((d) => ({ id: d.id, ...d.data(), updatedAt: toDateString(d.data().updatedAt) }))
+        .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt))
+        .filter((w) => difficulty === 'all' || w.difficulty === difficulty)
         .filter((w) => matchesQuery(w, needle));
     },
 
     async getWalkthrough(id) {
       const snap = await getDoc(doc(db, 'walkthroughs', id));
       if (!snap.exists()) return null;
-      return { id: snap.id, ...snap.data(), updatedAt: toDateString(snap.data().updatedAt) };
+      const walkthrough = { id: snap.id, ...snap.data(), updatedAt: toDateString(snap.data().updatedAt) };
+      return walkthrough.approved === false ? null : walkthrough;
+    },
+
+    async createWalkthrough(input) {
+      const user = getUser();
+      if (!user) throw new Error('Sign in is not ready. Please try again.');
+      const profile = await this.getCurrentProfile();
+      const ref = await addDoc(walkthroughsRef, {
+        title: input.title.trim(), game: 'GTA 6', difficulty: input.difficulty,
+        duration: Number(input.duration), author: profile.username, authorUid: user.uid,
+        likes: 0, updatedAt: serverTimestamp(), cover: input.cover.trim() || '📖',
+        summary: input.summary.trim(), tags: input.tags, steps: input.steps, approved: false
+      });
+      return { id: ref.id, ...input, author: profile.username, approved: false, updatedAt: today() };
+    },
+    async listPendingWalkthroughs() {
+      const snap = await getDocs(query(walkthroughsRef, where('approved', '==', false), limit(100)));
+      return snap.docs.map((d) => ({ id: d.id, ...d.data(), updatedAt: toDateString(d.data().updatedAt) }))
+        .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));
+    },
+    async approveWalkthrough(id) {
+      await updateDoc(doc(db, 'walkthroughs', id), { approved: true });
+      return this.getWalkthrough(id);
+    },
+    async deleteWalkthrough(id) {
+      await deleteDoc(doc(db, 'walkthroughs', id));
+      return { id };
     },
 
     async listThreads(category) {
@@ -618,6 +676,10 @@ export const DB = {
   createManualAchievement: (input) => backend.createManualAchievement(input),
   setManualAchievementCompleted: (id, unlocked) => backend.setManualAchievementCompleted(id, unlocked),
   listWalkthroughs: (opts) => backend.listWalkthroughs(opts),
+  createWalkthrough: (input) => backend.createWalkthrough(input),
+  listPendingWalkthroughs: () => backend.listPendingWalkthroughs(),
+  approveWalkthrough: (id) => backend.approveWalkthrough(id),
+  deleteWalkthrough: (id) => backend.deleteWalkthrough(id),
   getWalkthrough: (id) => backend.getWalkthrough(id),
   createWalkthrough: (input) => backend.createWalkthrough(input),
   listPendingWalkthroughs: () => backend.listPendingWalkthroughs(),

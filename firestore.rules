@@ -50,7 +50,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if true;
 
-      allow create: if isOwner(userId)
+      allow create: if isAdmin() || (isOwner(userId)
         && request.resource.data.username is string
         && request.resource.data.username.size() >= 3
         && request.resource.data.username.size() <= 24
@@ -63,7 +63,7 @@ service cloud.firestore {
         && request.resource.data.get('location', '').size() <= 80
         && request.resource.data.role == 'Member';
 
-      allow update: if isOwner(userId)
+      allow update: if isAdmin() || (isOwner(userId)
         && request.resource.data.diff(resource.data)
              .affectedKeys().hasOnly(['username', 'usernameLower', 'displayName', 'bio', 'location'])
         && request.resource.data.username is string
@@ -75,15 +75,15 @@ service cloud.firestore {
         && request.resource.data.displayName.size() > 0
         && request.resource.data.displayName.size() <= 60
         && request.resource.data.get('bio', '').size() <= 400
-        && request.resource.data.get('location', '').size() <= 80;
+        && request.resource.data.get('location', '').size() <= 80);
 
       // Owner or admin can delete a user document.
       allow delete: if isOwner(userId) || isAdmin();
 
       match /manualAchievements/{achievementId} {
-        allow read: if isOwner(userId);
+        allow read: if isAdmin() || isOwner(userId);
 
-        allow create: if isOwner(userId)
+        allow create: if isAdmin() || isOwner(userId)
           && request.resource.data.platform == 'manual'
           && request.resource.data.gameTitle is string
           && request.resource.data.gameTitle.size() > 0
@@ -96,13 +96,13 @@ service cloud.firestore {
           && request.resource.data.completedAt == null
           && request.resource.data.createdAt == request.time;
 
-        allow update: if isOwner(userId)
+        allow update: if isAdmin() || isOwner(userId)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unlocked', 'completedAt'])
           && (request.resource.data.unlocked
             ? request.resource.data.completedAt == request.time
             : request.resource.data.completedAt == null);
 
-        allow delete: if isOwner(userId);
+        allow delete: if isAdmin() || isOwner(userId);
       }
     }
 
@@ -110,7 +110,7 @@ service cloud.firestore {
       allow read: if true;
 
       allow create: if signedIn()
-        && isOwner(request.resource.data.authorUid)
+        && (isOwner(request.resource.data.authorUid) || isAdmin())
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
         && request.resource.data.title.size() <= 120
@@ -142,12 +142,12 @@ service cloud.firestore {
       match /replies/{replyId} {
         allow read: if true;
 
-        allow create: if signedIn()
+        allow create: if isAdmin() || (signedIn()
           && isOwner(request.resource.data.authorUid)
           && request.resource.data.body is string
           && request.resource.data.body.size() > 0
           && request.resource.data.body.size() <= 2000
-          && request.resource.data.createdAt == request.time;
+          && request.resource.data.createdAt == request.time);
 
         // Author or admin can update/delete replies.
         allow update, delete: if isOwner(resource.data.authorUid) || isAdmin();

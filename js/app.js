@@ -115,6 +115,16 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
       '</a>';
   }
 
+  function contentCard(item) {
+    return '<article class="card card--content">' +
+      '<div class="card__body">' +
+        '<p class="card__meta">' + esc(item.section) + ' · ' + esc(item.meta) + '</p>' +
+        '<h3 class="card__title">' + esc(item.title) + '</h3>' +
+        '<p>' + esc(item.body) + '</p>' +
+      '</div>' +
+    '</article>';
+  }
+
   function achievementRow(item) {
     return '<article class="achievement-row">' +
       (item.iconUrl ? '<img class="achievement-row__icon" src="' + esc(item.iconUrl) + '" alt="" loading="lazy" />' : '<span class="achievement-row__icon achievement-row__icon--empty" aria-hidden="true">★</span>') +
@@ -150,7 +160,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
 
   var Data = {};
   ['listUsers', 'getProfile', 'getCurrentProfile', 'updateProfile', 'listWalkthroughs', 'getWalkthrough', 'listThreads',
-    'getThread', 'createThread', 'addReply', 'categories'].forEach(function (method) {
+    'getThread', 'createThread', 'createWalkthrough', 'listPendingWalkthroughs', 'approveWalkthrough', 'deleteWalkthrough', 'addReply', 'categories', 'listContent'].forEach(function (method) {
     Data[method] = function () {
       return DB[method].apply(DB, arguments).catch(function (err) {
         console.error('[db] ' + method + ' failed:', err);
@@ -207,6 +217,40 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
   }
 
   var views = {
+    '/search': function () {
+      var query = state.globalQuery.trim();
+      if (!query) return render(emptyState('Enter a search term to search the app.'));
+      var needle = query.toLowerCase();
+      render('<div class="section-head"><h2>Search results</h2><span class="card__meta">Searching for “' + esc(query) + '”</span></div>' + emptyState('Searching…'));
+
+      Promise.all([
+        Data.listWalkthroughs({}),
+        Data.listThreads(),
+        Data.listUsers({}),
+        Data.listContent()
+      ]).then(function (res) {
+        var guides = res[0].filter(function (w) { return (w.title + ' ' + w.summary + ' ' + (w.tags || []).join(' ')).toLowerCase().includes(needle); });
+        var threads = res[1].filter(function (t) { return (t.title + ' ' + t.body + ' ' + t.category + ' ' + t.author).toLowerCase().includes(needle); });
+        var users = res[2].filter(function (u) { return (u.username + ' ' + u.displayName + ' ' + (u.bio || '') + ' ' + (u.location || '')).toLowerCase().includes(needle); });
+        var content = [];
+        res[3].forEach(function (section) {
+          section.items.forEach(function (item) {
+            if ((item.title + ' ' + item.body + ' ' + item.meta + ' ' + section.title).toLowerCase().includes(needle)) {
+              content.push({ section: section.title, title: item.title, body: item.body, meta: item.meta });
+            }
+          });
+        });
+
+        var total = guides.length + threads.length + users.length + content.length;
+        var html = '<div class="section-head"><h2>Search results</h2><span class="card__meta">' + total + (total === 1 ? ' result' : ' results') + '</span></div>';
+        if (!total) return render(html + emptyState('Nothing in the app matches “' + esc(query) + '”.'));
+        if (guides.length) html += '<div class="section-head"><h3>Walkthroughs</h3></div><div class="grid">' + guides.map(walkthroughCard).join('') + '</div>';
+        if (threads.length) html += '<div class="section-head"><h3>Forum discussions</h3></div><div class="stack">' + threads.map(threadRow).join('') + '</div>';
+        if (users.length) html += '<div class="section-head"><h3>Accounts</h3></div><div class="grid">' + users.map(accountCard).join('') + '</div>';
+        if (content.length) html += '<div class="section-head"><h3>GTA6 information</h3></div><div class="grid">' + content.map(contentCard).join('') + '</div>';
+        render(html);
+      });
+    },
     '/achievements': function () {
       render('' +
         '<div class="section-head"><h2>Achievement tracker</h2><span class="card__meta">Steam · Xbox · PlayStation</span></div>' +
@@ -382,6 +426,98 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
           });
         });
       }
+    },
+
+    '/new-walkthrough': function () {
+      render('' +
+        '<div class="section-head"><h2>Create a walkthrough</h2><span class="card__meta">Admin approval required before publishing</span></div>' +
+        '<form class="stack" id="walkthroughForm" style="max-width:640px">' +
+          '<div class="field"><label for="wTitle">Title</label><input id="wTitle" required maxlength="120" /></div>' +
+          '<div class="field"><label for="wSummary">Summary</label><textarea id="wSummary" required maxlength="500"></textarea></div>' +
+          '<div class="toolbar">' +
+            '<div class="field"><label for="wDifficulty">Difficulty</label><select id="wDifficulty"><option>easy</option><option>medium</option><option>hard</option></select></div>' +
+            '<div class="field"><label for="wDuration">Minutes</label><input id="wDuration" type="number" min="1" max="999" required /></div>' +
+            '<div class="field"><label for="wCover">Cover symbol</label><input id="wCover" maxlength="4" placeholder="📖" /></div>' +
+          '</div>' +
+          '<div class="field"><label for="wTags">Tags</label><input id="wTags" required placeholder="story, beginner" /></div>' +
+          '<div class="field"><label for="wSteps">Steps</label><textarea id="wSteps" required placeholder="One step per line"></textarea></div>' +
+          '<div class="toolbar"><button class="btn btn--primary" type="submit">Submit for approval</button><a class="btn btn--ghost" href="#/walkthroughs">Cancel</a></div>' +
+          '<p class="empty profile-form__status" id="walkthroughStatus" aria-live="polite" hidden></p>' +
+        '</form>');
+
+      document.getElementById('walkthroughForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        var status = document.getElementById('walkthroughStatus');
+        var submit = event.target.querySelector('[type="submit"]');
+        var steps = document.getElementById('wSteps').value.split('\n').map(function (step) { return step.trim(); }).filter(Boolean);
+        var tags = document.getElementById('wTags').value.split(',').map(function (tag) { return tag.trim().toLowerCase(); }).filter(Boolean);
+        submit.disabled = true;
+        Data.createWalkthrough({
+          title: document.getElementById('wTitle').value,
+          summary: document.getElementById('wSummary').value,
+          difficulty: document.getElementById('wDifficulty').value,
+          duration: document.getElementById('wDuration').value,
+          cover: document.getElementById('wCover').value,
+          tags: tags,
+          steps: steps
+        }).then(function () {
+          status.hidden = false;
+          status.textContent = 'Submitted. An Admin must approve this walkthrough before it becomes public.';
+          submit.disabled = false;
+          event.target.reset();
+        }).catch(function (error) {
+          status.hidden = false;
+          status.textContent = error.message || 'Could not submit walkthrough.';
+          submit.disabled = false;
+        });
+      });
+    },
+
+    '/admin-login': function () {
+      render('' +
+        '<div class="section-head"><h2>Admin sign in</h2><span class="card__meta">Authorized moderators only</span></div>' +
+        '<form class="stack" id="adminLoginForm" style="max-width:420px">' +
+          '<div class="field"><label for="adminEmail">Email</label><input id="adminEmail" type="email" required autocomplete="username" /></div>' +
+          '<div class="field"><label for="adminPassword">Password</label><input id="adminPassword" type="password" required autocomplete="current-password" /></div>' +
+          '<button class="btn btn--primary" type="submit">Sign in</button>' +
+          '<p class="empty profile-form__status" id="adminLoginStatus" aria-live="polite" hidden></p>' +
+        '</form>');
+      document.getElementById('adminLoginForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        var status = document.getElementById('adminLoginStatus');
+        var submit = event.target.querySelector('[type="submit"]');
+        submit.disabled = true;
+        signInAdmin(document.getElementById('adminEmail').value.trim(), document.getElementById('adminPassword').value)
+          .then(function () { location.hash = '#/admin'; })
+          .catch(function (error) { status.hidden = false; status.textContent = error.message || 'Could not sign in.'; submit.disabled = false; });
+      });
+    },
+
+    '/admin': function () {
+      Data.getCurrentProfile().then(function (user) {
+        if (!user || user.role !== 'Admin') return render('<p class="empty">Admin access is required. <a href="#/admin-login">Sign in as an Admin</a></p>');
+        render('<div class="section-head"><h2>Walkthrough approvals</h2><span class="card__meta">Pending submissions</span><button class="btn btn--ghost" id="adminSignOut" type="button">Sign out</button></div>' + emptyState('Loading…'));
+        document.getElementById('adminSignOut').addEventListener('click', function () { signOutUser().then(function () { location.hash = '#/'; }); });
+        Data.listPendingWalkthroughs().then(function (items) {
+          if (!items.length) return render('<div class="section-head"><h2>Walkthrough approvals</h2></div>' + emptyState('No walkthroughs are waiting for approval.'));
+          render('<div class="section-head"><h2>Walkthrough approvals</h2><span class="card__meta">' + items.length + ' pending</span></div><div class="stack">' + items.map(function (item) {
+            return '<article class="thread"><div class="thread__body"><h3 class="thread__title">' + esc(item.title) + '</h3><p class="thread__meta">' + esc(item.summary) + ' · by ' + esc(item.author) + '</p></div><div class="toolbar"><button class="btn btn--primary" data-approve="' + esc(item.id) + '" type="button">Approve</button><button class="btn btn--ghost" data-delete-walkthrough="' + esc(item.id) + '" type="button">Delete</button></div></article>';
+          }).join('') + '</div>');
+          main.querySelectorAll('[data-approve]').forEach(function (button) {
+            button.addEventListener('click', function () {
+              button.disabled = true;
+              Data.approveWalkthrough(button.dataset.approve).then(function () { views['/admin'](); });
+            });
+          });
+          main.querySelectorAll('[data-delete-walkthrough]').forEach(function (button) {
+            button.addEventListener('click', function () {
+              if (!window.confirm('Delete this walkthrough permanently?')) return;
+              button.disabled = true;
+              Data.deleteWalkthrough(button.dataset.deleteWalkthrough).then(function () { views['/admin'](); });
+            });
+          });
+        });
+      });
     },
 
     '/accounts': function () {
