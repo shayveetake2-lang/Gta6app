@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "python3 -m http.server 5173",
-    "check": "node --check js/app.js js/data.js js/firebase.js js/seed.js js/content.js api/server.mjs scripts/seed.mjs scripts/create-admin.mjs scripts/provision-admins.mjs",
+    "check": "node --check js/app.js js/atlas.js js/data.js js/firebase.js js/seed.js js/content.js api/server.mjs scripts/seed.mjs scripts/create-admin.mjs scripts/provision-admins.mjs",
     "api": "node api/server.mjs",
     "seed": "node scripts/seed.mjs",
     "provision-admins": "node scripts/provision-admins.mjs",

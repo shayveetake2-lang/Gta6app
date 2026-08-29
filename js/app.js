@@ -1,5 +1,6 @@
 import { DB, dbReady } from './data.js';
 import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
+import { renderAtlas, bindAtlasInteractions } from './atlas.js';
 
 (function () {
   'use strict';
@@ -237,6 +238,11 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
   // Set by the accounts view so the header search can refresh it in place.
   var refreshAccounts = function () {};
 
+  function renderAtlasPage() {
+    render(renderAtlas());
+    bindAtlasInteractions({ root: main });
+  }
+
   function walkthroughDetail(id) {
     Data.getWalkthrough(id).then(function (w) {
       if (!w) return render(emptyState('That walkthrough could not be found.'));
@@ -288,6 +294,7 @@ import { isConfigured, onAuthChange, isEmailUser } from './firebase.js';
   }
 
   var views = {
+    '/atlas': renderAtlasPage,
     '/achievements': function () {
       render('' +
         '<div class="section-head"><h2>Achievement tracker</h2><span class="card__meta">Steam · Xbox · PlayStation</span></div>' +
