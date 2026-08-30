@@ -31,11 +31,15 @@ service cloud.firestore {
       allow read: if isAdmin() || (signedIn() && resource.data.authorUid == request.auth.uid);
 
       allow create: if isEmailUser()
+        && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
         && request.resource.data.title.size() <= 120
         && request.resource.data.get('summary', '').size() <= 400
-        && request.resource.data.get('steps', []) is list;
+        && request.resource.data.get('steps', []) is list
+        && request.resource.data.get('likes', 0) == 0
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
 
       allow update: if isAdmin();
 
@@ -130,6 +134,7 @@ service cloud.firestore {
         && request.resource.data.body.size() <= 4000
         && request.resource.data.category in ['General', 'Guides', 'Tech', 'News', 'GTA Online', 'Off-topic']
         && request.resource.data.replyCount == 0
+        && request.resource.data.get('likes', 0) == 0
         && request.resource.data.createdAt == request.time;
 
       // Signed-in users may bump reply counter or add a like; admins may edit any field.
@@ -158,6 +163,7 @@ service cloud.firestore {
           && request.resource.data.body is string
           && request.resource.data.body.size() > 0
           && request.resource.data.body.size() <= 2000
+          && request.resource.data.get('likes', 0) == 0
           && request.resource.data.createdAt == request.time);
 
         // Author or admin can update/delete replies.

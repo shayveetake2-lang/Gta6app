@@ -1142,7 +1142,7 @@ function firestoreBackend(db) {
         ),
         getDocs(query(threadsRef, orderBy("createdAt", "desc"), limit(200))),
         getDocs(query(usersRef, orderBy("usernameLower"), limit(200))),
-        getDocs(query(newsRef, orderBy("createdAt", "desc"), limit(100))),
+        getDocs(query(newsRef, orderBy("dateAdded", "desc"), limit(100))),
       ]);
       return {
         walkthroughs: wtSnap.docs
