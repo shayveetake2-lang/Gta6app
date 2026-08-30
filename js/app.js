@@ -1452,8 +1452,6 @@ import { renderAtlas, bindAtlasInteractions } from './atlas.js';
             }).join('') + '</div>';
 
           setupAdminNewsSearch();
-            });
-          });
         }
 
         function setupAdminNewsSearch() {
