@@ -1376,25 +1376,14 @@ import { isConfigured, onAuthChange, isEmailUser } from "./firebase.js";
           '<div class="form-error" id="newsError"></div>' +
           '<form class="stack" id="newsForm">' +
           '<div class="field"><label for="newsTitle">Headline</label><input id="newsTitle" required maxlength="160" placeholder="e.g. New Trailer Breakdown Reveals Hidden Vice City Locations" /></div>' +
-          '<div style="display:flex;gap:1rem;flex-wrap:wrap;">' +
-          '<div class="field" style="flex:1;min-width:140px;"><label for="newsCategory">Category</label><select id="newsCategory">' +
-          "<option>Official</option><option>Gameplay</option><option>Rumour</option><option>Trailer</option><option>Community</option>" +
+          '<div class="field"><label for="newsCategory">Category</label><select id="newsCategory">' +
+          "<option>Official</option><option>Leaks</option><option>Rumors</option><option>Community</option>" +
           "</select></div>" +
-          '<div class="field" style="flex:1;min-width:140px;"><label for="newsCover">Cover Emoji</label><select id="newsCover">' +
-          '<option value="📰">📰 News</option><option value="🌴">🌴 Vice City</option><option value="🎮">🎮 Gameplay</option><option value="🎯">🎯 Mission/Heist</option><option value="⚡">⚡ Tech/Performance</option><option value="🗺️">🗺️ Map</option><option value="🚗">🚗 Vehicles</option><option value="📻">📻 Soundtrack</option>' +
-          "</select></div>" +
-          "</div>" +
-          '<div style="display:flex;gap:1rem;flex-wrap:wrap;">' +
-          '<div class="field" style="flex:1;min-width:140px;"><label for="newsSourceType">Source Type</label><input id="newsSourceType" value="Community" placeholder="e.g. Official Rockstar Games" /></div>' +
-          '<div class="field" style="flex:1;min-width:140px;"><label for="newsPublishedAt">Published Date</label><input type="date" id="newsPublishedAt" /></div>' +
-          "</div>" +
-          '<div class="field" style="flex-direction:row;align-items:center;gap:.5rem;"><input type="checkbox" id="newsIsSpoiler" /> <label for="newsIsSpoiler" style="margin:0;cursor:pointer;font-weight:600;">Contains spoilers</label></div>' +
-          '<div class="field"><label for="newsSource">Source / Citation</label><input id="newsSource" placeholder="e.g. Rockstar Games, Take-Two Investor Call, Newswire" /></div>' +
-          '<div class="field"><label for="newsSummary">Summary / Lead</label><textarea id="newsSummary" required maxlength="400" rows="2" placeholder="Brief 1-2 sentence overview of the news…"></textarea></div>' +
-          '<div class="field"><label for="newsBody">Article Content & Details</label><textarea id="newsBody" required rows="6" maxlength="8000" placeholder="Write full details, breakdown points, timestamps, quotes, or sections here…"></textarea></div>' +
+          '<div class="field"><label for="newsSourceLink">Source / Citation Link</label><input id="newsSourceLink" type="url" placeholder="https://..." /></div>' +
+          '<div class="field"><label for="newsContent">Article Content & Details</label><textarea id="newsContent" required rows="6" maxlength="8000" placeholder="Write full details, breakdown points, timestamps, quotes, or sections here…"></textarea></div>' +
           '<div style="margin-top:1rem;display:flex;justify-content:flex-end;gap:.5rem;">' +
           '<button type="button" class="btn btn--ghost" id="newsModalCancel">Cancel</button>' +
-          '<button class="btn btn--primary" type="submit">Publish news</button>' +
+          '<button class="btn btn--primary" type="submit">Submit News</button>' +
           "</div>" +
           "</form>" +
           "</div>" +
@@ -1554,17 +1543,11 @@ import { isConfigured, onAuthChange, isEmailUser } from "./firebase.js";
             DB.createNews({
               title: document.getElementById("newsTitle").value.trim(),
               category: document.getElementById("newsCategory").value,
-              cover: document.getElementById("newsCover").value,
-              source: document.getElementById("newsSource").value.trim(),
-              summary: document.getElementById("newsSummary").value.trim(),
-              body: document.getElementById("newsBody").value.trim(),
-              sourceType: document
-                .getElementById("newsSourceType")
+              sourceLink: document
+                .getElementById("newsSourceLink")
                 .value.trim(),
-              publishedAt:
-                document.getElementById("newsPublishedAt").value ||
-                new Date().toISOString().split("T")[0],
-              isSpoiler: document.getElementById("newsIsSpoiler").checked,
+              content: document.getElementById("newsContent").value.trim(),
+              isApproved: false,
             })
               .then(function () {
                 newsModal.hidden = true;
@@ -2363,13 +2346,15 @@ import { isConfigured, onAuthChange, isEmailUser } from "./firebase.js";
             "input",
             debounce(function () {
               var needle = input.value.trim().toLowerCase();
-              DB.listNews({ query: needle }).then(renderAdminNewsPanel);
+              DB.listNews({ query: needle, includeUnapproved: true }).then(
+                renderAdminNewsPanel,
+              );
             }),
           );
         }
 
         function loadAdminNews() {
-          DB.listNews({}).then(renderAdminNewsPanel);
+          DB.listNews({ includeUnapproved: true }).then(renderAdminNewsPanel);
         }
         loadAdminNews();
 
@@ -2867,3 +2852,31 @@ import { isConfigured, onAuthChange, isEmailUser } from "./firebase.js";
   main.innerHTML = emptyState("Loading…");
   dbReady.then(route, route);
 })();
+
+window.approveNews = function (id) {
+  if (!confirm("Approve this news article?")) return;
+  DB.updateNews(id, { isApproved: true })
+    .then(() => {
+      alert("News approved!");
+      if (typeof refreshNews === "function") refreshNews();
+      else window.location.reload();
+    })
+    .catch((err) => {
+      console.error(err);
+      alert("Failed to approve news: " + err.message);
+    });
+};
+
+window.deleteNews = function (id) {
+  if (!confirm("Are you sure you want to delete this?")) return;
+  DB.deleteNews(id)
+    .then(() => {
+      alert("Deleted!");
+      if (typeof refreshNews === "function") refreshNews();
+      else window.location.reload();
+    })
+    .catch((err) => {
+      console.error(err);
+      alert("Failed to delete: " + err.message);
+    });
+};
