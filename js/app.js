@@ -89,37 +89,27 @@ import { renderAtlas, bindAtlasInteractions } from './atlas.js';
   function newsCard(n) {
     var catClass = (n.category || 'official').toLowerCase().replace(/[^a-z0-9]/g, '-');
     var isAdmin = currentProfile && currentProfile.role === 'Admin';
-    var isAuthor = currentProfile && n.authorUid && currentProfile.id === n.authorUid;
-
-    var bodyContent = '';
-    if (n.isSpoiler) {
-      bodyContent = '<div class="spoiler-wrapper">' +
-        '<button class="btn btn--sm btn--primary spoiler-btn" onclick="this.parentElement.classList.add(\'revealed\')">⚠️ Show Spoiler Content</button>' +
-        '<div class="spoiler-content">' +
-          (n.summary ? '<p class="news-card__summary">' + esc(n.summary) + '</p>' : '') +
-          (n.body ? '<div class="news-card__content">' + esc(n.body) + '</div>' : '') +
-        '</div>' +
-      '</div>';
-    } else {
-      bodyContent = (n.summary ? '<p class="news-card__summary">' + esc(n.summary) + '</p>' : '') +
-        (n.body ? '<div class="news-card__content">' + esc(n.body) + '</div>' : '');
-    }
+    var bodyContent = (n.content ? '<div class="news-card__content">' + esc(n.content) + '</div>' : '');
+    var sourceHtml = n.sourceLink ? '<a href="' + esc(n.sourceLink) + '" target="_blank" rel="noopener noreferrer" class="btn btn--sm btn--ghost">Source</a>' : '';
 
     return '' +
-      '<article class="card card--news' + (n.category === 'Rumour' ? ' card--rumour' : '') + '" data-news-id="' + esc(n.id) + '">' +
+      '<article class="card card--news" data-news-id="' + esc(n.id) + '">' +
         '<div class="news-card__body">' +
           '<div class="news-card__header">' +
             '<div style="display:flex;gap:.35rem;align-items:center;">' +
               '<span class="badge badge--' + esc(catClass) + '">' + esc(n.category || 'News') + '</span>' +
-              (n.isSpoiler ? '<span class="badge badge--spoiler" style="background:#ff315d;color:#fff;">[SPOILER]</span>' : '') +
+              (!n.isApproved ? '<span class="badge" style="background:#ff9900;color:#fff;">PENDING</span>' : '') +
             '</div>' +
-            '<span class="card__meta" style="font-size:.8rem">' + esc(n.publishedAt || n.createdAt || '') + '</span>' +
+            '<span class="card__meta" style="font-size:.8rem">' + esc(n.dateAdded || '') + '</span>' +
           '</div>' +
-          '<h3 class="news-card__title">' + (n.cover ? '<span style="margin-right:.4rem;">' + esc(n.cover) + '</span>' : '') + esc(n.title) + '</h3>' +
+          '<h3 class="news-card__title">' + esc(n.title) + '</h3>' +
           bodyContent +
           '<div class="news-card__footer">' +
-            '<span>Source: <strong>' + esc(n.source || 'Community') + '</strong> (' + esc(n.sourceType || 'Community') + ') · By @' + esc(n.author || 'guest') + '</span>' +
-            (isAdmin || isAuthor ? '<button class="btn btn--danger btn--sm" data-action="delete-news" data-id="' + esc(n.id) + '" data-title="' + esc(n.title) + '" style="padding:.2rem .55rem;min-height:26px;font-size:.75rem;">Delete</button>' : '') +
+             sourceHtml +
+             '<div>' +
+               (isAdmin ? '<button class="btn btn--sm btn--danger" onclick="window.deleteNews(\'' + esc(n.id) + '\')" style="margin-right:.5rem;">Delete</button>' : '') +
+               (isAdmin && !n.isApproved ? '<button class="btn btn--sm btn--approve" onclick="window.approveNews(\'' + esc(n.id) + '\')">Approve</button>' : '') +
+             '</div>' +
           '</div>' +
         '</div>' +
       '</article>';
@@ -1451,38 +1441,17 @@ import { renderAtlas, bindAtlasInteractions } from './atlas.js';
               var catClass = (n.category || 'official').toLowerCase().replace(/[^a-z0-9]/g, '-');
               return '<div class="admin-row">' +
                 '<div class="admin-row__body">' +
-                  '<h3>' + (n.cover ? esc(n.cover) + ' ' : '') + esc(n.title) + ' <span class="badge badge--' + esc(catClass) + '" style="vertical-align:middle;margin-left:.3rem;">' + esc(n.category || 'Official') + '</span></h3>' +
-                  '<p class="admin-row__meta">By <strong>@' + esc(n.author) + '</strong> · Source: ' + esc(n.source || 'Community') + ' · ' + esc(n.createdAt) + '</p>' +
-                  '<p class="admin-row__meta" style="margin-top:.25rem">' + esc(n.summary || '') + '</p>' +
+                  '<h3>' + (!n.isApproved ? '<span class="badge" style="background:#ff9900;color:#fff;">PENDING</span> ' : '') + esc(n.title) + ' <span class="badge badge--' + esc(catClass) + '" style="vertical-align:middle;margin-left:.3rem;">' + esc(n.category || 'Official') + '</span></h3>' +
+                  '<p class="admin-row__meta">By <strong>@' + esc(n.author) + '</strong> · Source: ' + esc(n.sourceLink || 'None') + ' · ' + esc(n.dateAdded) + '</p>' +
                 '</div>' +
                 '<div class="admin-row__actions">' +
-                  '<a class="btn btn--ghost btn--sm" href="#/news">View page</a>' +
-                  '<button class="btn btn--danger btn--sm" data-action="delete-admin-news" data-id="' + esc(n.id) + '" data-title="' + esc(n.title) + '">Remove news</button>' +
+                  (!n.isApproved ? '<button class="btn btn--approve btn--sm" onclick="window.approveNews(\'' + esc(n.id) + '\')">Approve</button>' : '') +
+                  '<button class="btn btn--danger btn--sm" onclick="window.deleteNews(\'' + esc(n.id) + '\')">Remove</button>' +
                 '</div>' +
               '</div>';
             }).join('') + '</div>';
 
           setupAdminNewsSearch();
-
-          el.querySelectorAll('[data-action="delete-admin-news"]').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-              var id = btn.dataset.id;
-              var title = btn.dataset.title;
-              if (!confirm('Permanently remove news article "' + title + '" from the database?')) return;
-              btn.disabled = true;
-              btn.textContent = 'Removing…';
-              DB.deleteNews(id).then(function () {
-                newsStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fff;">' +
-                  '<div style="font-weight:bold;color:#f87171;font-size:.92rem;">🗑️ News Article Removed</div>' +
-                  '<p style="margin:0;font-size:.88rem;color:var(--text);">“' + esc(title) + '” was deleted from the database.</p>' +
-                '</div>';
-                loadAdminNews();
-              }).catch(function (err) {
-                newsStatusMsg = '<div class="admin-notice form-error is-visible" style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;">' +
-                  '<span>Error removing news: ' + esc(err.message || err) + '</span>' +
-                  '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:1.2rem;">✕</button></div>';
-                loadAdminNews();
-              });
             });
           });
         }

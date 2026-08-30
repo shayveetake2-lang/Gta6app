@@ -330,38 +330,41 @@ const localBackend = {
     saveLocal();
     return clone(user);
   },
-  async listNews({ category = 'all', query: q = '' } = {}) {
+  async listNews({ category = 'all', query: q = '', includeUnapproved = false } = {}) {
     const needle = q.trim().toLowerCase();
     const allNews = localNews();
     return clone(
       allNews
-        .filter((n) => (category === 'all' || (n.category || '').toLowerCase() === category.toLowerCase()) && matchesNews(n, needle))
-        .sort((first, second) => (second.createdAt || '').localeCompare(first.createdAt || ''))
+        .filter((n) => (includeUnapproved || n.isApproved) && (category === 'all' || (n.category || '').toLowerCase() === category.toLowerCase()) && matchesNews(n, needle))
+        .sort((first, second) => (second.dateAdded || '').localeCompare(first.dateAdded || ''))
     );
   },
   async getNews(id) {
     return clone(localNews().find((n) => n.id === id) || null);
   },
-  async createNews({ title, category, cover, source, summary, body, sourceType, publishedAt, isSpoiler }) {
+  async createNews({ title, category, content, sourceLink, isApproved }) {
     const user = await this.getCurrentProfile();
     const item = {
       id: uid('news'),
       title: (title || '').trim(),
       category: category || 'Official',
-      cover: cover || '📰',
-      source: (source || 'Community').trim(),
-      summary: (summary || '').trim(),
-      body: (body || '').trim(),
-      sourceType: sourceType || 'Community',
-      publishedAt: publishedAt || today(),
-      isSpoiler: !!isSpoiler,
+      content: (content || '').trim(),
+      sourceLink: (sourceLink || '').trim(),
+      dateAdded: today(),
+      isApproved: !!isApproved,
       author: user ? user.username : 'guest',
-      authorUid: user ? user.id : null,
-      createdAt: today()
+      authorUid: user ? user.id : null
     };
     localNews().unshift(item);
     saveLocal();
     return clone(item);
+  },
+  async updateNews(id, updates) {
+    const newsList = localNews();
+    const idx = newsList.findIndex((n) => n.id === id);
+    if (idx === -1) throw new Error('News item not found.');
+    Object.assign(newsList[idx], updates);
+    saveLocal();
   },
   async deleteNews(id) {
     const newsList = localNews();
@@ -377,7 +380,7 @@ const localBackend = {
       walkthroughs: clone(local.walkthroughs.filter((w) => w.approved !== false && matchesQuery(w, needle)).slice(0, 8)),
       threads: clone(local.threads.filter((t) => `${t.title} ${t.body}`.toLowerCase().includes(needle)).slice(0, 8)),
       users: clone(local.users.filter((u) => matchesUser(u, needle)).slice(0, 6)),
-      news: clone(localNews().filter((n) => matchesNews(n, needle)).slice(0, 6))
+      news: clone(localNews().filter((n) => n.isApproved && matchesNews(n, needle)).slice(0, 6))
     };
   }
 };
@@ -744,20 +747,19 @@ function firestoreBackend(db) {
       return { id, role };
     },
 
-    async listNews({ category = 'all', query: q = '' } = {}) {
-      const snap = await getDocs(query(newsRef, orderBy('createdAt', 'desc'), limit(100)));
+    async listNews({ category = 'all', query: q = '', includeUnapproved = false } = {}) {
+      const constraints = [orderBy('dateAdded', 'desc'), limit(100)];
+      if (!includeUnapproved) constraints.unshift(where('isApproved', '==', true));
+      const snap = await getDocs(query(newsRef, ...constraints));
       const needle = q.trim().toLowerCase();
       return snap.docs
         .map((d) => {
           const data = d.data();
-          const createdStr = toDateString(data.createdAt);
+          const createdStr = toDateString(data.dateAdded);
           return {
             id: d.id,
             ...data,
-            createdAt: createdStr,
-            publishedAt: data.publishedAt || createdStr,
-            sourceType: data.sourceType || 'Community',
-            isSpoiler: !!data.isSpoiler
+            dateAdded: createdStr
           };
         })
         .filter((n) => (category === 'all' || (n.category || '').toLowerCase() === category.toLowerCase()) && matchesNews(n, needle));
@@ -767,37 +769,34 @@ function firestoreBackend(db) {
       const snap = await getDoc(doc(db, 'news', id));
       if (!snap.exists()) return null;
       const data = snap.data();
-      const createdStr = toDateString(data.createdAt);
+      const createdStr = toDateString(data.dateAdded);
       return {
         id: snap.id,
         ...data,
-        createdAt: createdStr,
-        publishedAt: data.publishedAt || createdStr,
-        sourceType: data.sourceType || 'Community',
-        isSpoiler: !!data.isSpoiler
+        dateAdded: createdStr
       };
     },
 
-    async createNews({ title, category, cover, source, summary, body, sourceType, publishedAt, isSpoiler }) {
+    async createNews({ title, category, content, sourceLink, isApproved }) {
       const user = getUser();
       const profile = await this.getCurrentProfile();
       const author = profile ? profile.username : displayName();
       const item = {
         title: (title || '').trim(),
         category: category || 'Official',
-        cover: cover || '📰',
-        source: (source || 'Community').trim(),
-        summary: (summary || '').trim(),
-        body: (body || '').trim(),
-        sourceType: sourceType || 'Community',
-        publishedAt: publishedAt || today(),
-        isSpoiler: !!isSpoiler,
+        content: (content || '').trim(),
+        sourceLink: (sourceLink || '').trim(),
+        dateAdded: serverTimestamp(),
+        isApproved: !!isApproved,
         author: author,
-        authorUid: user ? user.uid : null,
-        createdAt: serverTimestamp()
+        authorUid: user ? user.uid : null
       };
       const ref = await addDoc(newsRef, item);
-      return { id: ref.id, ...item, createdAt: today(), publishedAt: item.publishedAt };
+      return { id: ref.id, ...item, dateAdded: today() };
+    },
+
+    async updateNews(id, updates) {
+      await updateDoc(doc(db, 'news', id), updates);
     },
 
     async deleteNews(id) {
@@ -824,7 +823,8 @@ function firestoreBackend(db) {
           .map((d) => ({ id: d.id, ...d.data() }))
           .filter((u) => matchesUser(u, needle)).slice(0, 6),
         news: newsSnap.docs
-          .map((d) => ({ id: d.id, ...d.data(), createdAt: toDateString(d.data().createdAt) }))
+          .map((d) => ({ id: d.id, ...d.data(), dateAdded: toDateString(d.data().dateAdded) }))
+          .filter((n) => n.isApproved)
           .filter((n) => matchesNews(n, needle)).slice(0, 6)
       };
     }
@@ -879,6 +879,7 @@ export const DB = {
   listNews: (opts) => backend.listNews(opts),
   getNews: (id) => backend.getNews(id),
   createNews: (input) => backend.createNews(input),
+  updateNews: (id, updates) => backend.updateNews(id, updates),
   deleteNews: (id) => backend.deleteNews(id),
   siteSearch: (q) => backend.siteSearch(q),
   categories: async () => CATEGORIES.slice(),
