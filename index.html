@@ -1,79 +1,170 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0e1116" />
-  <meta name="description" content="GTA6 Walkthrough — game walkthroughs, guides and community forum." />
-  <title>GTA6 Walkthrough</title>
-  <link rel="stylesheet" href="css/styles.css" />
-</head>
-<body>
-  <a class="skip-link" href="#main">Skip to content</a>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0e1116" />
+    <meta
+      name="description"
+      content="GTA6 Walkthrough — game walkthroughs, guides and community forum."
+    />
+    <title>GTA6 Walkthrough</title>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
 
-  <header class="topbar">
-    <div class="topbar__inner container">
-      <button class="icon-btn nav-toggle" id="navToggle" aria-expanded="false" aria-controls="primaryNav" aria-label="Open menu">
-        <span class="burger" aria-hidden="true"></span>
-      </button>
+    <header class="topbar">
+      <div class="topbar__inner container">
+        <button
+          class="icon-btn nav-toggle"
+          id="navToggle"
+          aria-expanded="false"
+          aria-controls="primaryNav"
+          aria-label="Open menu"
+        >
+          <span class="burger" aria-hidden="true"></span>
+        </button>
 
-      <a class="brand" href="#/" data-route-link="/" aria-label="GTA6 Walkthrough — go to dashboard" title="Home">
-        <span class="brand__mark" aria-hidden="true">G6</span>
-        <span class="brand__text">GTA6 <b>Walkthrough</b></span>
-      </a>
+        <a
+          class="brand"
+          href="#/"
+          data-route-link="/"
+          aria-label="GTA6 Walkthrough — go to dashboard"
+          title="Home"
+        >
+          <span class="brand__mark" aria-hidden="true">G6</span>
+          <span class="brand__text">GTA6 <b>Walkthrough</b></span>
+        </a>
 
-      <nav class="nav" id="primaryNav" aria-label="Primary">
-        <ul class="nav__list">
-          <li><a class="nav__link" href="#/" data-route-link="/">Home</a></li>
-          <li><a class="nav__link" href="#/walkthroughs" data-route-link="/walkthroughs">Walkthroughs</a></li>
-          <li><a class="nav__link" href="#/news" data-route-link="/news">News</a></li>
-          <li><a class="nav__link" href="#/achievements" data-route-link="/achievements">Achievements</a></li>
-          <li><a class="nav__link" href="#/forum" data-route-link="/forum">Forum</a></li>
-          <li><a class="nav__link" href="#/accounts" data-route-link="/accounts">Accounts</a></li>
-          <li><a class="nav__link" href="#/atlas" data-route-link="/atlas">Atlas</a></li>
-          <li class="nav__theme-item"><button class="nav__link theme-toggle" style="background: none; border: none; width: 100%; text-align: left; cursor: pointer; display: flex; align-items: center; gap: .5rem;" aria-label="Toggle color theme" title="Toggle theme">◐ Toggle Theme</button></li>
-        </ul>
-      </nav>
+        <nav class="nav" id="primaryNav" aria-label="Primary">
+          <ul class="nav__list">
+            <li><a class="nav__link" href="#/" data-route-link="/">Home</a></li>
+            <li>
+              <a
+                class="nav__link"
+                href="#/walkthroughs"
+                data-route-link="/walkthroughs"
+                >Walkthroughs</a
+              >
+            </li>
+            <li>
+              <a class="nav__link" href="#/news" data-route-link="/news"
+                >News</a
+              >
+            </li>
+            <li>
+              <a
+                class="nav__link"
+                href="#/achievements"
+                data-route-link="/achievements"
+                >Achievements</a
+              >
+            </li>
+            <li>
+              <a class="nav__link" href="#/forum" data-route-link="/forum"
+                >Forum</a
+              >
+            </li>
+            <li>
+              <a class="nav__link" href="#/accounts" data-route-link="/accounts"
+                >Accounts</a
+              >
+            </li>
+            <li class="nav__theme-item">
+              <button
+                class="nav__link theme-toggle"
+                style="
+                  background: none;
+                  border: none;
+                  width: 100%;
+                  text-align: left;
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  gap: 0.5rem;
+                "
+                aria-label="Toggle color theme"
+                title="Toggle theme"
+              >
+                ◐ Toggle Theme
+              </button>
+            </li>
+          </ul>
+        </nav>
 
-      <form class="search" role="search" id="globalSearch">
-        <input type="search" id="globalSearchInput" placeholder="Search everything…" aria-label="Search site" autocomplete="off" />
-      </form>
+        <form class="search" role="search" id="globalSearch">
+          <input
+            type="search"
+            id="globalSearchInput"
+            placeholder="Search everything…"
+            aria-label="Search site"
+            autocomplete="off"
+          />
+        </form>
 
-      <div class="auth-area" id="authArea">
-        <!-- populated by app.js -->
+        <div class="auth-area" id="authArea">
+          <!-- populated by app.js -->
+        </div>
+
+        <button
+          class="icon-btn theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle color theme"
+          title="Toggle theme"
+        >
+          ◐
+        </button>
       </div>
+    </header>
 
-      <button class="icon-btn theme-toggle" id="themeToggle" aria-label="Toggle color theme" title="Toggle theme">◐</button>
-    </div>
-  </header>
+    <div class="scrim" id="scrim" hidden></div>
 
-  <div class="scrim" id="scrim" hidden></div>
+    <main id="main" class="container" tabindex="-1"></main>
 
-  <main id="main" class="container" tabindex="-1"></main>
+    <nav class="tabbar" aria-label="Mobile">
+      <a href="#/" data-route-link="/"
+        ><span class="tabbar__icon" aria-hidden="true">⌂</span>Home</a
+      >
+      <a href="#/walkthroughs" data-route-link="/walkthroughs"
+        ><span class="tabbar__icon" aria-hidden="true">▤</span>Guides</a
+      >
+      <a href="#/news" data-route-link="/news"
+        ><span class="tabbar__icon news-icon" aria-hidden="true">▥</span>News</a
+      >
+      <a href="#/achievements" data-route-link="/achievements"
+        ><span class="tabbar__icon" aria-hidden="true">★</span>Trophies</a
+      >
+      <a href="#/forum" data-route-link="/forum"
+        ><span class="tabbar__icon tabbar__icon--chat" aria-hidden="true"></span
+        >Forum</a
+      >
+      <a href="#/accounts" data-route-link="/accounts"
+        ><span class="tabbar__icon" aria-hidden="true">♙</span>Accounts</a
+      >
+    </nav>
 
-  <nav class="tabbar" aria-label="Mobile">
-    <a href="#/" data-route-link="/"><span class="tabbar__icon" aria-hidden="true">⌂</span>Home</a>
-    <a href="#/walkthroughs" data-route-link="/walkthroughs"><span class="tabbar__icon" aria-hidden="true">▤</span>Guides</a>
-    <a href="#/news" data-route-link="/news"><span class="tabbar__icon news-icon" aria-hidden="true">▥</span>News</a>
-    <a href="#/achievements" data-route-link="/achievements"><span class="tabbar__icon" aria-hidden="true">★</span>Trophies</a>
-    <a href="#/forum" data-route-link="/forum"><span class="tabbar__icon tabbar__icon--chat" aria-hidden="true"></span>Forum</a>
-    <a href="#/accounts" data-route-link="/accounts"><span class="tabbar__icon" aria-hidden="true">♙</span>Accounts</a>
-  </nav>
+    <footer class="footer">
+      <div class="container footer__inner">
+        <p>
+          © <span id="year"></span> GTA6 Walkthrough — community-built guides.
+        </p>
+        <ul class="footer__links">
+          <li><a href="#/#about-section">About</a></li>
+          <li><a href="#/news">News</a></li>
+          <li><a href="#/forum">Forum</a></li>
+        </ul>
+      </div>
+    </footer>
 
-  <footer class="footer">
-    <div class="container footer__inner">
-      <p>© <span id="year"></span> GTA6 Walkthrough — community-built guides.</p>
-      <ul class="footer__links">
-        <li><a href="#/#about-section">About</a></li>
-        <li><a href="#/news">News</a></li>
-        <li><a href="#/forum">Forum</a></li>
-      </ul>
-    </div>
-  </footer>
-
-  <!-- Set window.ACHIEVEMENT_API_URL to the deployed achievement-API origin before going live.
+    <!-- Set window.ACHIEVEMENT_API_URL to the deployed achievement-API origin before going live.
        Leave blank to disable platform imports and show only the local tracker. -->
-  <script>window.ACHIEVEMENT_API_URL = '';</script>
-  <script type="module" src="js/app.js?v=13"></script>
-</body>
+    <script>
+      window.ACHIEVEMENT_API_URL = "";
+    </script>
+    <script type="module" src="js/app.js?v=13"></script>
+  </body>
 </html>

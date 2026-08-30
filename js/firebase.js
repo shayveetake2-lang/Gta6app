@@ -1,13 +1,17 @@
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js';
-import { getFirestore } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import {
-  getAuth, signInAnonymously, onAuthStateChanged,
-  createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  signOut, updateProfile as fbUpdateProfile
-} from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js';
-import { firebaseConfig } from './firebase-config.js';
+  getAuth,
+  signInAnonymously,
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile as fbUpdateProfile,
+} from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+import { firebaseConfig } from "./firebase-config.js";
 
-export const isConfigured = !/^YOUR_/.test(firebaseConfig.apiKey || 'YOUR_');
+export const isConfigured = !/^YOUR_/.test(firebaseConfig.apiKey || "YOUR_");
 
 let firestore = null;
 let auth = null;
@@ -19,7 +23,7 @@ const authListeners = [];
 /** Resolves once Firebase is initialised (anonymous session established), or immediately if unconfigured. */
 export const ready = (async function init() {
   if (!isConfigured) {
-    console.warn('[firebase] Not configured — using local in-browser store.');
+    console.warn("[firebase] Not configured — using local in-browser store.");
     return false;
   }
   try {
@@ -36,16 +40,19 @@ export const ready = (async function init() {
     // Establish an anonymous session for read-only access.
     await new Promise((resolve) => {
       const unsub = onAuthStateChanged(auth, (user) => {
-        if (user) { unsub(); resolve(); }
+        if (user) {
+          unsub();
+          resolve();
+        }
       });
       signInAnonymously(auth).catch((err) => {
-        console.error('[firebase] Anonymous sign-in failed:', err);
+        console.error("[firebase] Anonymous sign-in failed:", err);
         resolve();
       });
     });
     return !!currentUser;
   } catch (err) {
-    console.error('[firebase] Init failed, falling back to local store:', err);
+    console.error("[firebase] Init failed, falling back to local store:", err);
     firestore = null;
     return false;
   }
@@ -55,15 +62,16 @@ export const ready = (async function init() {
 
 /** Register with email + password. Returns the Firebase Auth user. */
 export async function authRegister(email, password, displayNameStr) {
-  if (!auth) throw new Error('Firebase is not configured.');
+  if (!auth) throw new Error("Firebase is not configured.");
   const cred = await createUserWithEmailAndPassword(auth, email, password);
-  if (displayNameStr) await fbUpdateProfile(cred.user, { displayName: displayNameStr });
+  if (displayNameStr)
+    await fbUpdateProfile(cred.user, { displayName: displayNameStr });
   return cred.user;
 }
 
 /** Sign in with email + password. Returns the Firebase Auth user. */
 export async function authLogin(email, password) {
-  if (!auth) throw new Error('Firebase is not configured.');
+  if (!auth) throw new Error("Firebase is not configured.");
   const cred = await signInWithEmailAndPassword(auth, email, password);
   return cred.user;
 }
@@ -81,12 +89,16 @@ export function onAuthChange(cb) {
   cb(currentUser);
 }
 
-export function getDb()   { return firestore; }
-export function getUser() { return currentUser; }
+export function getDb() {
+  return firestore;
+}
+export function getUser() {
+  return currentUser;
+}
 
 export function displayName() {
-  if (!currentUser) return 'guest';
-  return currentUser.displayName || 'user-' + currentUser.uid.slice(0, 5);
+  if (!currentUser) return "guest";
+  return currentUser.displayName || "user-" + currentUser.uid.slice(0, 5);
 }
 
 /** True when the current user authenticated with email (not anonymous). */
