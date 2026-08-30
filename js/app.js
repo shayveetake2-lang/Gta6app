@@ -496,6 +496,22 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
 
   var views = {
     "/achievements": function () {
+      if (!window.hasBoundAchivementsAuth) {
+        window.hasBoundAchivementsAuth = true;
+        onAuthChange(function() {
+          if (window.location.hash === "#/achievements") {
+            views["/achievements"]();
+          }
+        });
+      }
+
+      var user = getUser();
+      if (!user || user.isAnonymous) {
+        render(emptyState("Please log in or create an account to use the achievement tracker feature."));
+        if (window.manualAchUnsub) { window.manualAchUnsub(); window.manualAchUnsub = null; }
+        return;
+      }
+
       render(
         "" +
           '<div class="section-head"><h2>Achievement tracker</h2><span class="card__meta">Steam · Xbox · PlayStation</span></div>' +
@@ -563,159 +579,133 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
 
       // --- Manual Achievement Tracker Logic ---
       if (window.manualAchUnsub) { window.manualAchUnsub(); window.manualAchUnsub = null; }
+      var manualContainer = document.getElementById("manualAchievementsContainer");
+      
+      manualContainer.innerHTML = 
+        '<div class="section-head"><h2>Manual Override Log</h2><span class="card__meta">Firebase Sync</span></div>' +
+        '<button id="showManualFormBtn" class="btn btn--primary" style="margin-bottom: 2rem;">Add new achievement</button>' +
+        '<form class="stack" id="manualAchievementForm" style="max-width: 500px; margin-bottom: 2rem; display: none;">' +
+          '<div class="field">' +
+            '<label for="manualGame">Game</label>' +
+            '<input id="manualGame" type="text" required placeholder="e.g. Grand Theft Auto V" />' +
+          '</div>' +
+          '<div class="field">' +
+            '<label for="manualTitle">Achievement Title</label>' +
+            '<input id="manualTitle" type="text" required placeholder="e.g. Master Criminal" />' +
+          '</div>' +
+          '<div class="field">' +
+            '<label for="manualDate">When Got</label>' +
+            '<input id="manualDate" type="date" required />' +
+          '</div>' +
+          '<div class="field">' +
+            '<label for="manualPlatform">Platform</label>' +
+            '<select id="manualPlatform" required>' +
+              '<option value="Steam">Steam</option>' +
+              '<option value="Xbox">Xbox</option>' +
+              '<option value="PlayStation">PlayStation</option>' +
+            '</select>' +
+          '</div>' +
+          '<button type="submit" class="btn" style="background-color: #e01e5a; color: #fff; width: 100%;">Log Achievement</button>' +
+        '</form>' +
+        '<div id="manualGrid" class="grid" style="grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem;">' +
+          '<p class="card__meta">Loading database records...</p>' +
+        '</div>';
 
-      function renderManualTracker() {
-        var mCont = document.getElementById("manualAchievementsContainer");
-        if (!mCont) return;
-        var user = getUser();
-        if (!user || user.isAnonymous) {
-          mCont.innerHTML = emptyState("MISSION LOCKED - CLASSIFIED INTEL: Log in to manually track achievements");
+      var mForm = document.getElementById("manualAchievementForm");
+      var showBtn = document.getElementById("showManualFormBtn");
+
+      showBtn.addEventListener("click", function() {
+        if (mForm.style.display === "none") {
+          mForm.style.display = "block";
+          showBtn.textContent = "Cancel";
+        } else {
+          mForm.style.display = "none";
+          showBtn.textContent = "Add new achievement";
+        }
+      });
+      
+      mForm.addEventListener("submit", function(e) {
+        e.preventDefault();
+        var gameVal = document.getElementById("manualGame").value.trim();
+        var titleVal = document.getElementById("manualTitle").value.trim();
+        var dateGotVal = document.getElementById("manualDate").value;
+        var platVal = document.getElementById("manualPlatform").value;
+        var btn = mForm.querySelector("button");
+        btn.disabled = true;
+        btn.textContent = "Saving...";
+
+        addDoc(collection(getDb(), "user_achievements"), {
+          userId: user.uid,
+          game: gameVal,
+          title: titleVal,
+          dateGot: dateGotVal,
+          platform: platVal,
+          completed: true,
+          createdAt: serverTimestamp()
+        }).then(function() {
+          var gInput = document.getElementById("manualGame");
+          if (gInput) gInput.value = "";
+          var tInput = document.getElementById("manualTitle");
+          if (tInput) tInput.value = "";
+          var dInput = document.getElementById("manualDate");
+          if (dInput) dInput.value = "";
+          btn.disabled = false;
+          btn.textContent = "Log Achievement";
+          
+          mForm.style.display = "none";
+          showBtn.textContent = "Add new achievement";
+        }).catch(function(err) {
+          console.error(err);
+          alert("Error: " + err.message);
+          btn.disabled = false;
+          btn.textContent = "Log Achievement";
+        });
+      });
+
+      var q = query(collection(getDb(), "user_achievements"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
+      window.manualAchUnsub = onSnapshot(q, function(snapshot) {
+        var mGridCurrent = document.getElementById("manualGrid");
+        if (!mGridCurrent) {
           if (window.manualAchUnsub) { window.manualAchUnsub(); window.manualAchUnsub = null; }
           return;
         }
-
-        mCont.innerHTML = 
-          '<div class="section-head"><h2>Manual Override Log</h2><span class="card__meta">Firebase Sync</span></div>' +
-          '<button id="showManualFormBtn" class="btn btn--primary" style="margin-bottom: 2rem;">Add new achievement</button>' +
-          '<form class="stack" id="manualAchievementForm" style="max-width: 500px; margin-bottom: 2rem; display: none;">' +
-            '<div class="field">' +
-              '<label for="manualGame">Game</label>' +
-              '<input id="manualGame" type="text" required placeholder="e.g. Grand Theft Auto V" />' +
-            '</div>' +
-            '<div class="field">' +
-              '<label for="manualTitle">Achievement Title</label>' +
-              '<input id="manualTitle" type="text" required placeholder="e.g. Master Criminal" />' +
-            '</div>' +
-            '<div class="field">' +
-              '<label for="manualDate">When Got</label>' +
-              '<input id="manualDate" type="date" required />' +
-            '</div>' +
-            '<div class="field">' +
-              '<label for="manualPlatform">Platform</label>' +
-              '<select id="manualPlatform" required>' +
-                '<option value="Steam">Steam</option>' +
-                '<option value="Xbox">Xbox</option>' +
-                '<option value="PlayStation">PlayStation</option>' +
-              '</select>' +
-            '</div>' +
-            '<button type="submit" class="btn" style="background-color: #e01e5a; color: #fff; width: 100%;">Log Achievement</button>' +
-          '</form>' +
-          '<div id="manualGrid" class="grid" style="grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem;">' +
-            '<p class="card__meta">Loading database records...</p>' +
+        if (snapshot.empty) {
+          mGridCurrent.innerHTML = emptyState("No achievements logged yet.");
+          return;
+        }
+        var html = "";
+        snapshot.forEach(function(docSnap) {
+          var data = docSnap.data();
+          var pColor = data.platform === "Steam" ? "#1b2838" : data.platform === "Xbox" ? "#107c10" : "#00439c";
+          var dateStr = data.createdAt ? new Date(data.createdAt.toMillis()).toLocaleDateString() : "Just now";
+          var displayDate = data.dateGot ? esc(data.dateGot) : dateStr;
+          var displayGame = data.game ? esc(data.game) : "Unknown Game";
+          
+          html += '<div class="card" style="background: #181820; border: 1px solid #333; position: relative;">' +
+            '<p class="card__meta" style="margin: 0 0 0.25rem 0; font-size: 0.75rem;">' + displayGame + '</p>' +
+            '<h3 style="margin-top: 0; margin-bottom: 0.5rem; color: #fff; padding-right: 2rem;">' + esc(data.title) + '</h3>' +
+            '<span class="badge" style="background: ' + pColor + '; color: #fff; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; display: inline-block; margin-bottom: 0.5rem;">' + esc(data.platform) + '</span><br>' +
+            '<span class="card__meta" style="font-size: 0.75rem;">Unlocked: ' + displayDate + '</span>' +
+            '<button class="btn btn--sm btn--danger del-manual-btn" data-id="' + docSnap.id + '" style="position: absolute; top: 0.5rem; right: 0.5rem; padding: 0.25rem 0.5rem; line-height: 1;">✕</button>' +
           '</div>';
-
-        var mForm = document.getElementById("manualAchievementForm");
-        var showBtn = document.getElementById("showManualFormBtn");
-
-        showBtn.addEventListener("click", function() {
-          if (mForm.style.display === "none") {
-            mForm.style.display = "block";
-            showBtn.textContent = "Cancel";
-          } else {
-            mForm.style.display = "none";
-            showBtn.textContent = "Add new achievement";
-          }
         });
-        
-        mForm.addEventListener("submit", function(e) {
-          e.preventDefault();
-          var game = document.getElementById("manualGame").value.trim();
-          var title = document.getElementById("manualTitle").value.trim();
-          var dateGot = document.getElementById("manualDate").value;
-          var plat = document.getElementById("manualPlatform").value;
-          var btn = mForm.querySelector("button");
-          btn.disabled = true;
-          btn.textContent = "Saving...";
+        mGridCurrent.innerHTML = html;
 
-          addDoc(collection(getDb(), "user_achievements"), {
-            userId: user.uid,
-            game: game,
-            title: title,
-            dateGot: dateGot,
-            platform: plat,
-            completed: true,
-            createdAt: serverTimestamp()
-          }).then(function() {
-            var gInput = document.getElementById("manualGame");
-            if (gInput) gInput.value = "";
-            var tInput = document.getElementById("manualTitle");
-            if (tInput) tInput.value = "";
-            var dInput = document.getElementById("manualDate");
-            if (dInput) dInput.value = "";
-            btn.disabled = false;
-            btn.textContent = "Log Achievement";
-            
-            mForm.style.display = "none";
-            showBtn.textContent = "Add new achievement";
-          }).catch(function(err) {
-            console.error(err);
-            alert("Error: " + err.message);
-            btn.disabled = false;
-            btn.textContent = "Log Achievement";
-          });
-        });
-
-        if (window.manualAchUnsub) window.manualAchUnsub();
-        var q = query(collection(getDb(), "user_achievements"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
-        window.manualAchUnsub = onSnapshot(q, function(snapshot) {
-          var mGridCurrent = document.getElementById("manualGrid");
-          if (!mGridCurrent) {
-            if (window.manualAchUnsub) { window.manualAchUnsub(); window.manualAchUnsub = null; }
-            return;
-          }
-          if (snapshot.empty) {
-            mGridCurrent.innerHTML = emptyState("No achievements logged yet.");
-            return;
-          }
-          var html = "";
-          snapshot.forEach(function(docSnap) {
-            var data = docSnap.data();
-            var pColor = data.platform === "Steam" ? "#1b2838" : data.platform === "Xbox" ? "#107c10" : "#00439c";
-            var dateStr = data.createdAt ? new Date(data.createdAt.toMillis()).toLocaleDateString() : "Just now";
-            var displayDate = data.dateGot ? esc(data.dateGot) : dateStr;
-            var displayGame = data.game ? esc(data.game) : "Unknown Game";
-            
-            html += '<div class="card" style="background: #181820; border: 1px solid #333; position: relative;">' +
-              '<p class="card__meta" style="margin: 0 0 0.25rem 0; font-size: 0.75rem;">' + displayGame + '</p>' +
-              '<h3 style="margin-top: 0; margin-bottom: 0.5rem; color: #fff; padding-right: 2rem;">' + esc(data.title) + '</h3>' +
-              '<span class="badge" style="background: ' + pColor + '; color: #fff; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; display: inline-block; margin-bottom: 0.5rem;">' + esc(data.platform) + '</span><br>' +
-              '<span class="card__meta" style="font-size: 0.75rem;">Unlocked: ' + displayDate + '</span>' +
-              '<button class="btn btn--sm btn--danger del-manual-btn" data-id="' + docSnap.id + '" style="position: absolute; top: 0.5rem; right: 0.5rem; padding: 0.25rem 0.5rem; line-height: 1;">✕</button>' +
-            '</div>';
-          });
-          mGridCurrent.innerHTML = html;
-
-          var btns = mGridCurrent.querySelectorAll(".del-manual-btn");
-          for (var i = 0; i < btns.length; i++) {
-            btns[i].addEventListener("click", function(e) {
-              if (confirm("Delete this log?")) {
-                deleteDoc(doc(getDb(), "user_achievements", e.target.getAttribute("data-id"))).catch(function(err){
-                  alert("Delete failed: " + err.message);
-                });
-              }
-            });
-          }
-        }, function(error) {
-           console.error("Snapshot error:", error);
-           var mGridCurrent = document.getElementById("manualGrid");
-           if (mGridCurrent) mGridCurrent.innerHTML = emptyState("Error: " + error.message);
-        });
-      }
-
-      renderManualTracker();
-      
-      if (!window.hasBoundManualAuth) {
-        window.hasBoundManualAuth = true;
-        onAuthChange(function() {
-          if (window.location.hash === "#/achievements") {
-            // Using a fresh lookup and call on the updated DOM
-            var mCont = document.getElementById("manualAchievementsContainer");
-            if (mCont) {
-               renderManualTracker();
+        var btns = mGridCurrent.querySelectorAll(".del-manual-btn");
+        for (var i = 0; i < btns.length; i++) {
+          btns[i].addEventListener("click", function(e) {
+            if (confirm("Delete this log?")) {
+              deleteDoc(doc(getDb(), "user_achievements", e.target.getAttribute("data-id"))).catch(function(err){
+                alert("Delete failed: " + err.message);
+              });
             }
-          }
-        });
-      }
+          });
+        }
+      }, function(error) {
+         console.error("Snapshot error:", error);
+         var mGridCurrent = document.getElementById("manualGrid");
+         if (mGridCurrent) mGridCurrent.innerHTML = emptyState("Error: " + error.message);
+      });
     },
     "/": function () {
       Promise.all([
