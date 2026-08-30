@@ -186,7 +186,7 @@ import { renderAtlas, bindAtlasInteractions } from './atlas.js';
   }
 
   function emptyState(message) {
-    return '<p class="empty">' + esc(message) + '</p>';
+    return '<div class="empty"><strong>MISSION LOCKED - Classified Intel</strong><br><br>' + esc(message) + '</div>';
   }
 
   function errorState(err) {
