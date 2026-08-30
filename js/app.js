@@ -576,10 +576,19 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
 
         mCont.innerHTML = 
           '<div class="section-head"><h2>Manual Override Log</h2><span class="card__meta">Firebase Sync</span></div>' +
-          '<form class="stack" id="manualAchievementForm" style="max-width: 500px; margin-bottom: 2rem;">' +
+          '<button id="showManualFormBtn" class="btn btn--primary" style="margin-bottom: 2rem;">Add new achievement</button>' +
+          '<form class="stack" id="manualAchievementForm" style="max-width: 500px; margin-bottom: 2rem; display: none;">' +
+            '<div class="field">' +
+              '<label for="manualGame">Game</label>' +
+              '<input id="manualGame" type="text" required placeholder="e.g. Grand Theft Auto V" />' +
+            '</div>' +
             '<div class="field">' +
               '<label for="manualTitle">Achievement Title</label>' +
               '<input id="manualTitle" type="text" required placeholder="e.g. Master Criminal" />' +
+            '</div>' +
+            '<div class="field">' +
+              '<label for="manualDate">When Got</label>' +
+              '<input id="manualDate" type="date" required />' +
             '</div>' +
             '<div class="field">' +
               '<label for="manualPlatform">Platform</label>' +
@@ -596,10 +605,23 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
           '</div>';
 
         var mForm = document.getElementById("manualAchievementForm");
+        var showBtn = document.getElementById("showManualFormBtn");
+
+        showBtn.addEventListener("click", function() {
+          if (mForm.style.display === "none") {
+            mForm.style.display = "block";
+            showBtn.textContent = "Cancel";
+          } else {
+            mForm.style.display = "none";
+            showBtn.textContent = "Add new achievement";
+          }
+        });
         
         mForm.addEventListener("submit", function(e) {
           e.preventDefault();
+          var game = document.getElementById("manualGame").value.trim();
           var title = document.getElementById("manualTitle").value.trim();
+          var dateGot = document.getElementById("manualDate").value;
           var plat = document.getElementById("manualPlatform").value;
           var btn = mForm.querySelector("button");
           btn.disabled = true;
@@ -607,15 +629,24 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
 
           addDoc(collection(getDb(), "user_achievements"), {
             userId: user.uid,
+            game: game,
             title: title,
+            dateGot: dateGot,
             platform: plat,
             completed: true,
             createdAt: serverTimestamp()
           }).then(function() {
+            var gInput = document.getElementById("manualGame");
+            if (gInput) gInput.value = "";
             var tInput = document.getElementById("manualTitle");
             if (tInput) tInput.value = "";
+            var dInput = document.getElementById("manualDate");
+            if (dInput) dInput.value = "";
             btn.disabled = false;
             btn.textContent = "Log Achievement";
+            
+            mForm.style.display = "none";
+            showBtn.textContent = "Add new achievement";
           }).catch(function(err) {
             console.error(err);
             alert("Error: " + err.message);
@@ -641,10 +672,14 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
             var data = docSnap.data();
             var pColor = data.platform === "Steam" ? "#1b2838" : data.platform === "Xbox" ? "#107c10" : "#00439c";
             var dateStr = data.createdAt ? new Date(data.createdAt.toMillis()).toLocaleDateString() : "Just now";
+            var displayDate = data.dateGot ? esc(data.dateGot) : dateStr;
+            var displayGame = data.game ? esc(data.game) : "Unknown Game";
+            
             html += '<div class="card" style="background: #181820; border: 1px solid #333; position: relative;">' +
+              '<p class="card__meta" style="margin: 0 0 0.25rem 0; font-size: 0.75rem;">' + displayGame + '</p>' +
               '<h3 style="margin-top: 0; margin-bottom: 0.5rem; color: #fff; padding-right: 2rem;">' + esc(data.title) + '</h3>' +
               '<span class="badge" style="background: ' + pColor + '; color: #fff; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; display: inline-block; margin-bottom: 0.5rem;">' + esc(data.platform) + '</span><br>' +
-              '<span class="card__meta" style="font-size: 0.75rem;">' + dateStr + '</span>' +
+              '<span class="card__meta" style="font-size: 0.75rem;">Unlocked: ' + displayDate + '</span>' +
               '<button class="btn btn--sm btn--danger del-manual-btn" data-id="' + docSnap.id + '" style="position: absolute; top: 0.5rem; right: 0.5rem; padding: 0.25rem 0.5rem; line-height: 1;">✕</button>' +
             '</div>';
           });
