@@ -785,9 +785,22 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
           return skeleton + skeleton + skeleton;
         }
 
+        var introHtml = 
+          '<div class="post-card" style="margin-bottom: 2rem; border-color: #e01e5a; box-shadow: 0 0 10px rgba(224, 30, 90, 0.15);">' +
+            '<div class="section-head" style="margin-bottom: 1rem; border-bottom: 1px solid #333; padding-bottom: 0.5rem;"><h2 style="color: #00f0ff;">Welcome to Vice City Companion</h2></div>' +
+            '<p style="color: #ccc; margin-bottom: 1rem; line-height: 1.6; font-size: 0.95rem;">This app is your ultimate hub for exploring the world of GTA 6. Use the platform to navigate the community:</p>' +
+            '<ul style="color: #aaa; padding-left: 1.5rem; margin-bottom: 0; line-height: 1.6; font-size: 0.9rem;">' +
+              '<li style="margin-bottom: 0.5rem;"><strong style="color: #fff;">Feed & News:</strong> Stay updated with real-time community posts, official announcements, and Vice City rumors.</li>' +
+              '<li style="margin-bottom: 0.5rem;"><strong style="color: #fff;">Walkthroughs:</strong> Read step-by-step guides for missions and collectibles, or publish your own guides.</li>' +
+              '<li style="margin-bottom: 0.5rem;"><strong style="color: #fff;">Trophies (Sign In Required):</strong> Track your unlocked achievements directly via your connected Xbox, PlayStation, or Steam accounts.</li>' +
+              '<li><strong style="color: #fff;">Forums:</strong> Dive into deep discussions, theories, and connect with fellow players.</li>' +
+            '</ul>' +
+          '</div>';
+
         render(
           '<div class="feed-layout">' +
             '<div class="feed-main">' +
+              introHtml +
               tabsHtml +
               formHtml +
               '<div id="feedContainer">' +
@@ -3218,6 +3231,12 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
   // Auth state listener — updates the topbar and re-renders the current view on sign-in/out.
   onAuthChange(async function (user) {
     currentAuthUser = user;
+    var navAch = document.getElementById("navAchievements");
+    var tabAch = document.getElementById("tabAchievements");
+    var showAch = user && !user.isAnonymous;
+    if (navAch) navAch.style.display = showAch ? "" : "none";
+    if (tabAch) tabAch.style.display = showAch ? "" : "none";
+
     if (isEmailUser() && user) {
       currentProfile = await DB.getCurrentProfile();
     } else {
