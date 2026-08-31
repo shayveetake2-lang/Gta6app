@@ -145,17 +145,17 @@
   .badge--admin { background: rgba(255, 0, 127, 0.15); color: #be005e; border: none; box-shadow: none; text-shadow: none; }
   .badge--discussions { background: rgba(111, 66, 193, 0.15); color: #5a32a3; border: none; box-shadow: none; text-shadow: none; }
 
-  --cyan-text: #0099cc;
+  --cyan-text: #e01e5a;
   --bg: #f2f3f7;
   --surface: #ffffff;
   --surface-2: #e4e5eb;
   --border: #dcdde1;
-  --border-focus: #00f0ff;
+  --border-focus: #e01e5a;
   --text: #1a1a24;
   --muted: #5b5b6b;
   --accent: #e01e5a;
-  --accent-2: #00f0ff;
-  --cyan-text: #00f0ff;
+  --accent-2: #ff4757;
+  --cyan-text: #e01e5a;
   --accent-ink: #ffffff;
   --color-primary: #e01e5a;
   --danger: #ff4757;

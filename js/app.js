@@ -521,7 +521,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
           '<div style="max-width: 600px; margin: 4rem auto; text-align: center;">' +
             '<h2 style="color: #e01e5a; margin-bottom: 1rem;">Sign in required</h2>' +
             '<p style="color: var(--muted); margin-bottom: 2rem;">You must be signed in to access the Trophy Tracker.</p>' +
-            '<a href="#/login" class="btn btn--primary" style="background:#00f0ff; border-color:#00f0ff; color:#111;">Sign In</a>' +
+            '<a href="#/login" class="btn btn--primary" >Sign In</a>' +
           '</div>'
         );
         if (window.manualAchUnsub) { window.manualAchUnsub(); window.manualAchUnsub = null; }
@@ -799,7 +799,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                 '<strong style="color: var(--text); display: block; margin-bottom: 0.25rem;">Feed & News</strong>' +
                 '<span style="color: var(--muted); font-size: 0.85rem; line-height: 1.4;">Real-time posts, announcements, and rumors.</span>' +
               '</div>' +
-              '<div style="background: var(--surface-2); padding: 1rem; border-radius: 8px; border-left: 2px solid #00f0ff;">' +
+              '<div style="background: var(--surface-2); padding: 1rem; border-radius: 8px; border-left: 2px solid var(--accent-2);">' +
                 '<strong style="color: var(--text); display: block; margin-bottom: 0.25rem;">Walkthroughs</strong>' +
                 '<span style="color: var(--muted); font-size: 0.85rem; line-height: 1.4;">Step-by-step guides for missions and collectibles.</span>' +
               '</div>' +
@@ -848,7 +848,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
               '<button type="button" class="auth-modal-close" id="authModalClose">&times;</button>' +
               '<h3>Log in to post on feed</h3>' +
               '<p style="margin-bottom:1.5rem; color: var(--muted);">You must be signed in to contribute to the community feed.</p>' +
-              '<a href="#/login" class="btn btn--primary" style="background:#00f0ff; border-color:#00f0ff; color:#111; width:100%;">Sign In</a>' +
+              '<a href="#/login" class="btn btn--primary" style="width:100%;">Sign In</a>' +
             '</div>' +
           '</div>'
         );
