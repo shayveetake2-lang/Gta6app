@@ -730,8 +730,8 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
         Data.listUsers({}),
         Data.listContent(),
       ]).then(function (res) {
-        var news = res[0].slice(0, 3);
-        var guides = res[1].slice(0, 3);
+        var news = res[0].slice(0, 2);
+        var guides = res[1].slice(0, 2);
         var threads = res[2].slice(0, 3);
         var members = res[3].slice(0, 4);
         var eventSection = res[4].find(function (section) {
@@ -942,9 +942,9 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
 
           // Backfilling if sparse (< 8)
           if (count < 8) {
-            // Take items not shown in sidebar (sidebar has res[0].slice(0,3) and res[1].slice(0,3))
-            var extraNews = res[0].slice(3);
-            var extraGuides = res[1].slice(3);
+            // Take items not shown in sidebar (sidebar has res[0].slice(0,2) and res[1].slice(0,2))
+            var extraNews = res[0].slice(2);
+            var extraGuides = res[1].slice(2);
             var allThreads = res[2];
             
             var pool = [];
