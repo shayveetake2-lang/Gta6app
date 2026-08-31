@@ -100,9 +100,19 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
   }
 
   function parseHash() {
-    var raw = location.hash.replace(/^#/, "") || "/";
+    var full = location.hash.replace(/^#/, "") || "/";
+    var raw = full.split("?")[0];
+    var qs = full.split("?")[1] || "";
     var parts = raw.split("/").filter(Boolean);
-    return { path: "/" + (parts[0] || ""), id: parts[1] || null };
+    var params = {};
+    if (qs) {
+      var pairs = qs.split("&");
+      for (var i = 0; i < pairs.length; i++) {
+         var kv = pairs[i].split("=");
+         params[kv[0]] = decodeURIComponent(kv[1] || "");
+      }
+    }
+    return { path: "/" + (parts[0] || ""), id: parts[1] || null, params: params };
   }
 
   /* ---------- shared partials ---------- */
@@ -708,6 +718,16 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
       });
     },
     "/": function () {
+      var r = parseHash();
+      var currentTab = (r.params && r.params.tab) ? r.params.tab.toLowerCase() : "all";
+
+      // Clean up previous feed listener if it exists
+      if (window.feedUnsub) {
+        window.feedUnsub();
+        window.feedUnsub = null;
+      }
+
+      // We still fetch the other items for the sidebar
       Promise.all([
         Data.listNews({}),
         Data.listWalkthroughs({}),
@@ -722,118 +742,166 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
         var eventSection = res[4].find(function (section) {
           return section.id === "gta-online-weekly";
         });
+        
+        var user = getUser();
+        var formHtml = "";
+        
+        if (!user || user.isAnonymous) {
+          formHtml = emptyState("MISSION LOCKED - CLASSIFIED INTEL: Log in to create a post");
+        } else {
+          formHtml = 
+            '<form id="quickShareForm" class="post-card">' +
+              '<textarea id="qsText" class="post-form-textarea" required placeholder="What\'s on your mind? Drop a tip, ask a question, or share some news..."></textarea>' +
+              '<div class="post-form-footer">' +
+                '<select id="qsCategory" class="post-form-select">' +
+                  '<option value="news">News</option>' +
+                  '<option value="guides">Guide</option>' +
+                  '<option value="discussions">Discussion</option>' +
+                '</select>' +
+                '<button type="submit" id="qsBtn" class="btn btn--primary" style="background:#e01e5a; border-color:#e01e5a;">Post</button>' +
+              '</div>' +
+            '</form>';
+        }
+
+        var tabsHtml = 
+          '<div class="feed-tabs">' +
+            '<a href="#/?tab=all" class="feed-tab ' + (currentTab === "all" ? "active" : "") + '">All</a>' +
+            '<a href="#/?tab=news" class="feed-tab ' + (currentTab === "news" ? "active" : "") + '">News</a>' +
+            '<a href="#/?tab=guides" class="feed-tab ' + (currentTab === "guides" ? "active" : "") + '">Guides</a>' +
+            '<a href="#/?tab=discussions" class="feed-tab ' + (currentTab === "discussions" ? "active" : "") + '">Discussions</a>' +
+          '</div>';
+
+        // Skeleton loader
+        function renderSkeleton() {
+          var skeleton = '<div class="skeleton-post">' +
+            '<div style="display:flex; align-items:center; margin-bottom:1rem;">' +
+              '<div class="skeleton-avatar"></div>' +
+              '<div style="flex:1;">' +
+                '<div class="skeleton-line short"></div>' +
+                '<div class="skeleton-line" style="width:20%;"></div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="skeleton-line"></div>' +
+            '<div class="skeleton-line"></div>' +
+            '<div class="skeleton-line short"></div>' +
+          '</div>';
+          return skeleton + skeleton + skeleton;
+        }
+
         render(
-          "" +
-            '<section class="hero">' +
-            "<h1>Every GTA6 walkthrough, in one place.</h1>" +
-            "<p>Step-by-step guides written and reviewed by the community, live GTA 6 news updates, plus a forum to discuss theories and strategies.</p>" +
-            '<div class="toolbar">' +
-            '<a class="btn btn--primary" href="#/walkthroughs">Browse walkthroughs</a>' +
-            '<a class="btn btn--ghost" href="#/news">Latest GTA 6 news</a>' +
-            '<a class="btn btn--ghost" href="#/forum">Visit forum</a>' +
-            "</div>" +
-            "</section>" +
-            '<div class="section-head"><h2>Latest GTA 6 news</h2><a href="#/news">View all news</a></div>' +
-            (news.length
-              ? '<div class="grid">' + news.map(newsCard).join("") + "</div>"
-              : emptyState("No news articles published yet.")) +
-            '<div class="section-head"><h2>Latest guides</h2><a href="#/walkthroughs">View all</a></div>' +
-            (guides.length
-              ? '<div class="grid">' +
-                guides.map(walkthroughCard).join("") +
-                "</div>"
-              : emptyState("No guides published yet.")) +
-            (eventSection
-              ? '<div class="section-head"><h2>' +
-                esc(eventSection.title) +
-                '</h2><span class="card__meta">' +
-                esc(eventSection.label) +
-                "</span></div>" +
-                '<div class="grid">' +
-                eventSection.items
-                  .map(function (item) {
-                    return contentCard({
-                      section: eventSection.title,
-                      title: item.title,
-                      body: item.body,
-                      meta: item.meta,
-                    });
-                  })
-                  .join("") +
-                "</div>"
-              : "") +
-            '<div class="section-head"><h2>Active discussions</h2><a href="#/forum">View all</a></div>' +
-            (threads.length
-              ? '<div class="stack">' +
-                threads.map(threadRow).join("") +
-                "</div>"
-              : emptyState("No discussions yet — start the first thread.")) +
-            '<div class="section-head"><h2>Members</h2><a href="#/accounts">Search accounts</a></div>' +
-            (members.length
-              ? '<div class="grid">' +
-                members.map(accountCard).join("") +
-                "</div>"
-              : emptyState("No accounts yet.")) +
-            '<section class="about-section" id="about-section">' +
-            '<div class="about-hero">' +
-            '<h2><span class="brand__mark" aria-hidden="true" style="display:inline-grid;width:28px;height:28px;font-size:.7rem;vertical-align:middle;">G6</span> About GTA6 Walkthrough</h2>' +
-            "<p>GTA6 Walkthrough is the community-driven intelligence hub for Grand Theft Auto VI. Built by gamers and speedrunners to provide real-time news, verified mission guides, interactive trophy tracking, and strategy discussions.</p>" +
-            '<div class="about-grid">' +
-            '<div class="about-box">' +
-            '<h3><span class="news-icon" aria-hidden="true">▥</span> Live GTA 6 News</h3>' +
-            "<p>Community and official updates covering launch dates, trailers, map leaks, protagonist analysis, and hardware performance modes.</p>" +
-            "</div>" +
-            '<div class="about-box">' +
-            "<h3>🎮 Verified Guides</h3>" +
-            "<p>Step-by-step walkthroughs for story missions, side quests, 100% checklists, and secret vehicle locations with category filters.</p>" +
-            "</div>" +
-            '<div class="about-box">' +
-            "<h3>★ Trophy & Achievement Tracker</h3>" +
-            "<p>Cross-platform tracker integrating Steam, Xbox Live, and PlayStation Network API synchronization plus custom checklists.</p>" +
-            "</div>" +
-            '<div class="about-box">' +
-            "<h3>💬 Community Forum</h3>" +
-            "<p>Real-time threads and discussions where players share strategies, theorycrafting, and hardware optimization tips.</p>" +
-            "</div>" +
-            "</div>" +
-            '<div class="about-disclaimer">' +
-            "<p><strong>Database Backend:</strong> " +
-            (isConfigured
-              ? "Live Cloud Firestore"
-              : "Local offline browser storage (configure keys in js/firebase-config.js to go live)") +
-            ".</p>" +
-            '<p style="margin-top:.35rem;"><strong>Disclaimer & Legal:</strong> Grand Theft Auto, GTA VI, Vice City, and related trademarks belong to Take-Two Interactive Software, Inc. and Rockstar Games. This is an independent community resource.</p>' +
-            "</div>" +
-            "</div>" +
-            "</section>",
+          '<div class="feed-layout">' +
+            '<div class="feed-main">' +
+              tabsHtml +
+              formHtml +
+              '<div id="feedContainer">' +
+                renderSkeleton() +
+              '</div>' +
+            '</div>' +
+            '<div class="feed-sidebar">' +
+              '<div class="section-head"><h2>Latest GTA 6 news</h2><a href="#/news">View all news</a></div>' +
+              (news.length
+                ? '<div class="grid">' + news.map(newsCard).join("") + "</div>"
+                : emptyState("No news articles published yet.")) +
+              '<div class="section-head"><h2>Latest guides</h2><a href="#/walkthroughs">View all</a></div>' +
+              (guides.length
+                ? '<div class="grid">' + guides.map(walkthroughCard).join("") + "</div>"
+                : emptyState("No guides published yet.")) +
+              (eventSection
+                ? '<div class="section-head"><h2>' + esc(eventSection.title) + '</h2><span class="card__meta">' + esc(eventSection.label) + '</span></div>' +
+                  '<div class="grid">' +
+                  eventSection.items.map(function (item) {
+                    return contentCard({ section: eventSection.title, title: item.title, body: item.body, meta: item.meta });
+                  }).join("") +
+                  "</div>"
+                : "") +
+            '</div>' +
+          '</div>'
         );
 
-        // Hook up delete buttons on home news cards
-        main
-          .querySelectorAll('[data-action="delete-news"]')
-          .forEach(function (btn) {
-            btn.addEventListener("click", function (e) {
-              e.stopPropagation();
-              var id = btn.dataset.id;
-              var title = btn.dataset.title;
-              if (!confirm('Permanently delete news article "' + title + '"?'))
-                return;
-              btn.disabled = true;
-              btn.textContent = "Deleting…";
-              DB.deleteNews(id)
-                .then(function () {
-                  views["/"]();
-                })
-                .catch(function (err) {
-                  alert("Error deleting news: " + (err.message || err));
-                  btn.disabled = false;
-                  btn.textContent = "Delete";
-                });
+        // Bind form submit
+        if (user && !user.isAnonymous) {
+          var qsForm = document.getElementById("quickShareForm");
+          qsForm.addEventListener("submit", function(e) {
+            e.preventDefault();
+            var qsBtn = document.getElementById("qsBtn");
+            qsBtn.disabled = true;
+            qsBtn.textContent = "Posting...";
+            
+            var text = document.getElementById("qsText").value.trim();
+            var category = document.getElementById("qsCategory").value;
+            
+            addDoc(collection(getDb(), "posts"), {
+              text: text,
+              category: category,
+              userId: user.uid,
+              authorName: user.displayName || 'Anonymous User',
+              createdAt: serverTimestamp()
+            }).then(function() {
+              document.getElementById("qsText").value = "";
+              qsBtn.disabled = false;
+              qsBtn.textContent = "Post";
+            }).catch(function(err) {
+              console.error(err);
+              alert("Error: " + err.message);
+              qsBtn.disabled = false;
+              qsBtn.textContent = "Post";
             });
           });
+        }
+
+        // Realtime Feed Listener
+        var feedQuery;
+        if (currentTab === "all") {
+          feedQuery = query(collection(getDb(), "posts"), orderBy("createdAt", "desc"));
+        } else {
+          feedQuery = query(collection(getDb(), "posts"), where("category", "==", currentTab), orderBy("createdAt", "desc"));
+        }
+
+        window.feedUnsub = onSnapshot(feedQuery, function(snapshot) {
+          var feedContainer = document.getElementById("feedContainer");
+          if (!feedContainer) {
+            if (window.feedUnsub) { window.feedUnsub(); window.feedUnsub = null; }
+            return;
+          }
+          if (snapshot.empty) {
+            feedContainer.innerHTML = '<div class="empty-feed">MISSION LOCKED - CLASSIFIED INTEL: BE THE FIRST TO POST</div>';
+            return;
+          }
+
+          var html = "";
+          
+          var count = 0;
+          snapshot.forEach(function(docSnap) {
+            if (count >= 15) return;
+            count++;
+            var data = docSnap.data();
+            var dateStr = data.createdAt ? new Date(data.createdAt.toMillis()).toLocaleString() : "Just now";
+            var badgeColor = "news";
+            if (data.category === "guides") badgeColor = "guides";
+            if (data.category === "discussions") badgeColor = "discussions";
+
+            html += 
+              '<div class="post-card">' +
+                '<div class="post-header">' +
+                  '<div>' +
+                    '<div class="post-author">' + esc(data.authorName) + '</div>' +
+                    '<div class="post-time">' + dateStr + '</div>' +
+                  '</div>' +
+                  '<span class="badge badge--' + badgeColor + '">' + esc(data.category) + '</span>' +
+                '</div>' +
+                '<div class="post-body">' + esc(data.text) + '</div>' +
+              '</div>';
+          });
+          feedContainer.innerHTML = html;
+        }, function(error) {
+           console.error("Feed snapshot error:", error);
+           var feedContainer = document.getElementById("feedContainer");
+           if (feedContainer) {
+             feedContainer.innerHTML = emptyState("Error loading feed: " + error.message + " (Check console for index link)");
+           }
+        });
       });
     },
-
     "/walkthroughs": function (id) {
       if (id) return walkthroughDetail(id);
 
