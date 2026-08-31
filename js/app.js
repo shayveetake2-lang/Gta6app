@@ -803,11 +803,11 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                 '<strong style="color: var(--text); display: block; margin-bottom: 0.25rem;">Walkthroughs</strong>' +
                 '<span style="color: var(--muted); font-size: 0.85rem; line-height: 1.4;">Step-by-step guides for missions and collectibles.</span>' +
               '</div>' +
-              '<div style="background: var(--surface-2); padding: 1rem; border-radius: 8px; border-left: 2px solid #FFD700;">' +
+              '<div style="background: var(--surface-2); padding: 1rem; border-radius: 8px; border-left: 2px solid var(--atlas-warning);">' +
                 '<strong style="color: var(--text); display: block; margin-bottom: 0.25rem;">Trophies (Sign In Required)</strong>' +
                 '<span style="color: var(--muted); font-size: 0.85rem; line-height: 1.4;">Track achievements via Steam, PSN, or Xbox.</span>' +
               '</div>' +
-              '<div style="background: var(--surface-2); padding: 1rem; border-radius: 8px; border-left: 2px solid #28a745;">' +
+              '<div style="background: var(--surface-2); padding: 1rem; border-radius: 8px; border-left: 2px solid var(--atlas-success-border);">' +
                 '<strong style="color: var(--text); display: block; margin-bottom: 0.25rem;">Forums</strong>' +
                 '<span style="color: var(--muted); font-size: 0.85rem; line-height: 1.4;">Deep discussions, theories, and tech support.</span>' +
               '</div>' +
@@ -1559,6 +1559,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                 btn.disabled = false;
                 btn.textContent = "Post reply";
                 console.error(err);
+                alert("Error: " + (err.message || "Failed to post reply."));
               });
           });
         }
@@ -1620,6 +1621,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                 btn.disabled = false;
                 btn.textContent = "Publish";
                 console.error(err);
+                alert("Error: " + (err.message || "Failed to create thread."));
               });
           });
       });
@@ -2594,13 +2596,13 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
             "input",
             debounce(function () {
               var needle = input.value.trim().toLowerCase();
-              DB.listWalkthroughs({ query: needle }).then(renderPublishedPanel);
+              DB.listWalkthroughs({ query: needle }).then(renderPublishedPanel).catch(function(err){ console.error(err); alert("Error loading walkthroughs: " + (err.message || err)); });
             }),
           );
         }
 
         function loadPublished() {
-          DB.listWalkthroughs({}).then(renderPublishedPanel);
+          DB.listWalkthroughs({}).then(renderPublishedPanel).catch(function(err){ console.error(err); alert("Error loading walkthroughs: " + (err.message || err)); });
         }
         loadPublished();
 
@@ -3146,6 +3148,10 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
   }
 
   function route() {
+    // Global listener cleanup phase to prevent memory leaks
+    if (window.feedUnsub) { window.feedUnsub(); window.feedUnsub = null; }
+    if (window.manualAchUnsub) { window.manualAchUnsub(); window.manualAchUnsub = null; }
+
     var r = parseHash();
     var isSearchTyping = document.activeElement === searchInput;
     var view = views[r.path] || views["/"];

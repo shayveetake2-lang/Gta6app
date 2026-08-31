@@ -1711,9 +1711,8 @@ a[href="#/admin"]:hover {
     monospace;
   --atlas-micro-size: 0.68rem;
   --atlas-section-space: 2.5rem;
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
-  padding-inline: max(1rem, calc((100vw - var(--container)) / 2));
+  width: 100%;
+  padding-inline: max(1rem, calc((100% - var(--container)) / 2));
   color: var(--text);
   background-color: var(--bg);
   background-image:
