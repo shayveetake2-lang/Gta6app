@@ -516,6 +516,17 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
       }
 
       var user = getUser();
+      if (!user || user.isAnonymous) {
+        render(
+          '<div style="max-width: 600px; margin: 4rem auto; text-align: center;">' +
+            '<h2 style="color: #e01e5a; margin-bottom: 1rem;">Sign in required</h2>' +
+            '<p style="color: #aaa; margin-bottom: 2rem;">You must be signed in to access the Trophy Tracker.</p>' +
+            '<a href="#/login" class="btn btn--primary" style="background:#00f0ff; border-color:#00f0ff; color:#111;">Sign In</a>' +
+          '</div>'
+        );
+        if (window.manualAchUnsub) { window.manualAchUnsub(); window.manualAchUnsub = null; }
+        return;
+      }
 
       render(
         "" +
@@ -529,8 +540,8 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
           '<div class="field field--grow"><label for="achievementGame">Game ID</label><input id="achievementGame" required placeholder="Steam app ID or platform title ID" /></div>' +
           '<button class="btn btn--primary" type="submit">Load achievements</button>' +
           "</form>" +
-          '<div id="achievementResults" aria-live="polite">' +
-          emptyState("Enter an account and game ID to load achievements.") +
+          '<div id="achievementResults" aria-live="polite" style="padding-top: 1rem;">' +
+          '<div style="color: #aaa; font-size: 0.9rem;">Enter an account and game ID to load achievements.</div>' +
           "</div>" +
           '<hr style="margin: 3rem 0; border: 1px solid #333;" />' +
           '<div id="manualAchievementsContainer"></div>',
@@ -573,12 +584,11 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                 ? '<div class="achievement-list">' +
                   items.map(achievementRow).join("") +
                   "</div>"
-                : emptyState("No achievements were returned."));
+                : '<div style="color: #e01e5a; font-size: 0.9rem; padding: 1rem 0;">No achievements added. Please add some.</div>');
           })
           .catch(function (error) {
             results.innerHTML =
-              errorState(error) +
-              '<p class="card__meta achievement-help">Start the API with <code>npm run api</code>, then configure the platform values in <code>.env</code>.</p>';
+              '<div style="color: #e01e5a; font-size: 0.9rem; padding: 1rem 0;">No achievements added. Please add some.</div>';
           });
       });
 
@@ -675,7 +685,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
           return;
         }
         if (snapshot.empty) {
-          mGridCurrent.innerHTML = emptyState("No achievements logged yet.");
+          mGridCurrent.innerHTML = '<div style="color: #e01e5a; font-size: 0.9rem; padding: 1rem 0;">No achievements added. Please add some.</div>';
           return;
         }
         var html = "";
@@ -709,7 +719,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
       }, function(error) {
          console.error("Snapshot error:", error);
          var mGridCurrent = document.getElementById("manualGrid");
-         if (mGridCurrent) mGridCurrent.innerHTML = emptyState("Error: " + error.message);
+         if (mGridCurrent) mGridCurrent.innerHTML = '<div style="color: #e01e5a; font-size: 0.9rem; padding: 1rem 0;">No achievements added. Please add some.</div>';
       });
     },
     "/": function () {
@@ -794,7 +804,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                 '<span style="color: #aaa; font-size: 0.85rem; line-height: 1.4;">Step-by-step guides for missions and collectibles.</span>' +
               '</div>' +
               '<div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border-left: 2px solid #FFD700;">' +
-                '<strong style="color: #fff; display: block; margin-bottom: 0.25rem;">Trophies</strong>' +
+                '<strong style="color: #fff; display: block; margin-bottom: 0.25rem;">Trophies (Sign In Required)</strong>' +
                 '<span style="color: #aaa; font-size: 0.85rem; line-height: 1.4;">Track achievements via Steam, PSN, or Xbox.</span>' +
               '</div>' +
               '<div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border-left: 2px solid #28a745;">' +
@@ -3238,6 +3248,12 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
   // Auth state listener — updates the topbar and re-renders the current view on sign-in/out.
   onAuthChange(async function (user) {
     currentAuthUser = user;
+    var navAch = document.getElementById("navAchievements");
+    var tabAch = document.getElementById("tabAchievements");
+    var showAch = user && !user.isAnonymous;
+    if (navAch) navAch.style.display = showAch ? "" : "none";
+    if (tabAch) tabAch.style.display = showAch ? "" : "none";
+
     if (isEmailUser() && user) {
       currentProfile = await DB.getCurrentProfile();
     } else {
