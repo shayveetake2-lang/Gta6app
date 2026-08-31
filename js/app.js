@@ -3152,6 +3152,15 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
     if (window.feedUnsub) { window.feedUnsub(); window.feedUnsub = null; }
     if (window.manualAchUnsub) { window.manualAchUnsub(); window.manualAchUnsub = null; }
 
+    // Reset global state on tab navigation to prevent state bleed
+    state.query = "";
+    state.category = "all";
+    state.game = "all";
+    state.accountQuery = "";
+    state.siteQuery = "";
+    state.newsCategory = "all";
+    state.newsQuery = "";
+
     var r = parseHash();
     var isSearchTyping = document.activeElement === searchInput;
     var view = views[r.path] || views["/"];
