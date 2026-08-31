@@ -180,6 +180,10 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
     var catClass = (w.category || "Missions")
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "-");
+      
+    var fallback = '<span class="avatar avatar--fallback" aria-hidden="true">' + initials(w.author) + '</span>';
+    var img = w.authorImg ? '<img src="' + esc(w.authorImg) + '" alt="' + esc(w.author) + '" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';" class="avatar__img" />' : '';
+
     return (
       "" +
       '<a class="card" href="#/walkthroughs/' +
@@ -194,13 +198,10 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
       '<h3 class="card__title">' +
       esc(w.title) +
       "</h3>" +
-      '<p class="card__meta">' +
-      esc(w.duration) +
-      " min · by " +
-      esc(w.author) +
-      " · updated " +
-      esc(w.updatedAt) +
-      "</p>" +
+      '<div class="card__author-row">' +
+        '<div class="avatar-container">' + img + '<span class="avatar-fallback" ' + (w.authorImg ? 'style="display:none;"' : '') + '>' + initials(w.author) + '</span></div>' +
+        '<p class="card__meta"><span class="author-name">' + esc(w.author) + '</span> &bull; <span class="author-time">' + esc(w.updatedAt) + '</span></p>' +
+      '</div>' +
       '<ul class="tags">' +
       w.tags
         .map(function (t) {
