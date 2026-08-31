@@ -1791,11 +1791,38 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
     },
 
     "/about": function () {
-      location.hash = "#/";
-      setTimeout(function () {
-        var el = document.getElementById("about-section");
-        if (el) el.scrollIntoView({ behavior: "smooth" });
-      }, 100);
+      render(
+            '<div class="card" style="padding:2rem; max-width:800px; margin:0 auto;">' +
+            '<section class="about-section" id="about-section">' +
+            '<div class="about-hero">' +
+            '<h2><span class="brand__mark" aria-hidden="true" style="display:inline-grid;width:28px;height:28px;font-size:.7rem;vertical-align:middle;">G6</span> About GTA6 Walkthrough</h2>' +
+            "<p>GTA6 Walkthrough is the community-driven intelligence hub for Grand Theft Auto VI. Built by gamers and speedrunners to provide real-time news, verified mission guides, interactive trophy tracking, and strategy discussions.</p>" +
+            '<div class="about-grid">' +
+            '<div class="about-box">' +
+            '<h3><span class="news-icon" aria-hidden="true">▥</span> Live GTA 6 News</h3>' +
+            "<p>Community and official updates covering launch dates, trailers, map leaks, protagonist analysis, and hardware performance modes.</p>" +
+            "</div>" +
+            '<div class="about-box">' +
+            "<h3>🎮 Verified Guides</h3>" +
+            "<p>Step-by-step walkthroughs for story missions, side quests, 100% checklists, and secret vehicle locations with category filters.</p>" +
+            "</div>" +
+            '<div class="about-box">' +
+            "<h3>★ Trophy & Achievement Tracker</h3>" +
+            "<p>Cross-platform tracker integrating Steam, Xbox Live, and PlayStation Network API synchronization plus custom checklists.</p>" +
+            "</div>" +
+            '<div class="about-box">' +
+            "<h3>💬 Community Forum</h3>" +
+            "<p>Real-time threads and discussions where players share strategies, theorycrafting, and hardware optimization tips.</p>" +
+            "</div>" +
+            "</div>" +
+            '<div class="about-disclaimer">' +
+            "<p><strong>Database Backend:</strong> Live Cloud Firestore.</p>" +
+            '<p style="margin-top:.35rem;"><strong>Disclaimer & Legal:</strong> Grand Theft Auto, GTA VI, Vice City, and related trademarks belong to Take-Two Interactive Software, Inc. and Rockstar Games. This is an independent community resource.</p>' +
+            "</div>" +
+            "</div>" +
+            "</section>" +
+            "</div>"
+      );
     },
 
     "/register": function () {

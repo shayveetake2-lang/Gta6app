@@ -2822,38 +2822,7 @@ a[href="#/admin"]:hover {
   }
 }
 
-.bottom-nav {
-  display: none;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(13, 13, 17, 0.85);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  z-index: 1000;
-  border-top: 1px solid #333;
-}
-@media (max-width: 767px) {
-  .bottom-nav {
-    display: flex;
-    justify-content: space-around;
-    padding: 0.75rem 0;
-    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
-  }
-  body {
-    padding-bottom: 70px; /* Space for bottom nav */
-  }
-}
-.bottom-nav__link {
-  color: #fff;
-  text-decoration: none;
-  font-size: 0.85rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-}
+
 
 .feed-layout {
   display: flex;
