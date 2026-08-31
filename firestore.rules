@@ -211,6 +211,7 @@ service cloud.firestore {
     match /posts/{postId} {
       allow read: if true;
       allow create: if request.auth != null;
+      allow update, delete: if isAdmin() || (request.auth != null && request.auth.uid == resource.data.userId);
     }
 
     match /user_achievements/{achievementId} {

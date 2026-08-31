@@ -2863,6 +2863,7 @@ a[href="#/admin"]:hover {
 }
 .feed-tab {
   display: inline-block;
+  padding: 0.4rem 1.25rem;
   border-radius: 9999px;
   text-decoration: none;
   font-weight: 600;

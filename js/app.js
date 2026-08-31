@@ -1,6 +1,6 @@
 import { DB, dbReady } from "./data.js";
 import { isConfigured, onAuthChange, isEmailUser, getDb, getUser } from "./firebase.js";
-import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, deleteDoc, doc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 (function () {
   "use strict";
 
@@ -839,12 +839,15 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
           var text = document.getElementById("qsText").value.trim();
           var category = document.getElementById("qsCategory").value;
           
-          addDoc(collection(getDb(), "posts"), {
-            text: text,
-            category: category,
-            userId: user.uid,
-            authorName: user.displayName || 'Anonymous User',
-            createdAt: serverTimestamp()
+          Data.getCurrentProfile().then(function(profile) {
+            var name = profile && profile.displayName ? profile.displayName : (user.displayName || (user.email ? user.email.split('@')[0] : 'Anonymous User'));
+            return addDoc(collection(getDb(), "posts"), {
+              text: text,
+              category: category,
+              userId: user.uid,
+              authorName: name,
+              createdAt: serverTimestamp()
+            });
           }).then(function() {
             document.getElementById("qsText").value = "";
             qsBtn.disabled = false;
@@ -2161,12 +2164,14 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
             '<button class="admin-tab" data-tab="news">News management</button>' +
             '<button class="admin-tab" data-tab="moderation">Forum moderation</button>' +
             '<button class="admin-tab" data-tab="users">User management</button>' +
+            '<button class="admin-tab" data-tab="feed">Feed posts</button>' +
             "</div>" +
             '<div id="adminPanel-pending" class="admin-panel is-active"><p class="empty">Loading…</p></div>' +
             '<div id="adminPanel-walkthroughs" class="admin-panel"><p class="empty">Loading…</p></div>' +
             '<div id="adminPanel-news" class="admin-panel"><p class="empty">Loading…</p></div>' +
             '<div id="adminPanel-moderation" class="admin-panel"><p class="empty">Loading…</p></div>' +
-            '<div id="adminPanel-users" class="admin-panel"><p class="empty">Loading…</p></div>',
+            '<div id="adminPanel-users" class="admin-panel"><p class="empty">Loading…</p></div>' +
+            '<div id="adminPanel-feed" class="admin-panel"><p class="empty">Loading…</p></div>',
         );
 
         // Tab switching
@@ -2995,6 +3000,80 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
           );
         }
 
+
+        var feedStatusMsg = "";
+        function loadFeedPosts() {
+          var el = document.getElementById("adminPanel-feed");
+          if (!el) return;
+          getDocs(query(collection(getDb(), "posts"), orderBy("createdAt", "desc"))).then(function(snap) {
+            var alertHtml = feedStatusMsg ? feedStatusMsg : "";
+            if (snap.empty) {
+              el.innerHTML = alertHtml + emptyState("No feed posts found.");
+              return;
+            }
+            
+            var html = alertHtml + '<div class="stack">';
+            snap.forEach(function(docSnap) {
+              var data = docSnap.data();
+              var dateStr = data.createdAt ? new Date(data.createdAt.toMillis()).toLocaleString() : "Just now";
+              html += 
+                '<div class="admin-row" data-post-id="' + docSnap.id + '">' +
+                  '<div class="admin-row__body">' +
+                    '<strong>' + esc(data.authorName || 'Anonymous') + '</strong> <span style="font-size:0.8rem;color:#888;">(' + dateStr + ')</span>' +
+                    '<div style="margin-top:0.5rem;font-size:0.9rem;">' + esc(data.text) + '</div>' +
+                    '<div style="margin-top:0.25rem;"><span class="badge badge--' + esc(data.category.toLowerCase()) + '">' + esc(data.category) + '</span></div>' +
+                  '</div>' +
+                  '<div class="admin-row__actions">' +
+                    '<button class="btn btn--secondary" data-action="edit-post" data-id="' + docSnap.id + '">Edit</button>' +
+                    '<button class="btn btn--danger" data-action="delete-post" data-id="' + docSnap.id + '">Delete</button>' +
+                  '</div>' +
+                '</div>';
+            });
+            html += '</div>';
+            el.innerHTML = html;
+
+            // Bind delete actions
+            el.querySelectorAll('[data-action="delete-post"]').forEach(function(btn) {
+              btn.addEventListener("click", function() {
+                if (!confirm("Are you sure you want to delete this post?")) return;
+                btn.disabled = true;
+                btn.textContent = "Deleting...";
+                deleteDoc(doc(getDb(), "posts", btn.dataset.id)).then(function() {
+                  feedStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem;background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#fff;">Post deleted successfully.</div>';
+                  loadFeedPosts();
+                }).catch(function(err) {
+                  feedStatusMsg = '<div class="admin-notice form-error is-visible" style="margin-bottom:1.5rem;">Error deleting post: ' + esc(err.message) + '</div>';
+                  loadFeedPosts();
+                });
+              });
+            });
+
+            // Bind edit actions
+            el.querySelectorAll('[data-action="edit-post"]').forEach(function(btn) {
+              btn.addEventListener("click", function() {
+                var row = btn.closest(".admin-row");
+                var textEl = row.querySelector("div[style*='margin-top:0.5rem']");
+                var currentText = textEl.textContent;
+                var newText = prompt("Edit post text:", currentText);
+                if (newText !== null && newText.trim() !== "" && newText !== currentText) {
+                  btn.disabled = true;
+                  btn.textContent = "Saving...";
+                  updateDoc(doc(getDb(), "posts", btn.dataset.id), { text: newText.trim() }).then(function() {
+                    feedStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem;background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#fff;">Post updated successfully.</div>';
+                    loadFeedPosts();
+                  }).catch(function(err) {
+                    feedStatusMsg = '<div class="admin-notice form-error is-visible" style="margin-bottom:1.5rem;">Error updating post: ' + esc(err.message) + '</div>';
+                    loadFeedPosts();
+                  });
+                }
+              });
+            });
+
+          }).catch(function(err) {
+             el.innerHTML = emptyState("Error loading posts: " + err.message);
+          });
+        }
+
         function setupUserSearch() {
           var input = document.getElementById("adminUserSearch");
           if (!input) return;
@@ -3011,6 +3090,7 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
           DB.listUsers({}).then(renderUsersPanel);
         }
         loadUsers();
+        loadFeedPosts();
       });
     },
   };
