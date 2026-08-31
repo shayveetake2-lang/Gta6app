@@ -82,11 +82,11 @@ function loadLocal() {
     if (raw) {
       const stored = JSON.parse(raw);
       // Add new editorial seed records without replacing local user data.
-      for (const collection of ["walkthroughs", "threads"]) {
-        if (!Array.isArray(stored[collection])) stored[collection] = [];
-        const existingIds = new Set(stored[collection].map((item) => item.id));
-        stored[collection].push(
-          ...SEED[collection].filter((item) => !existingIds.has(item.id)),
+      for (const colName of ["walkthroughs", "threads"]) {
+        if (!Array.isArray(stored[colName])) stored[colName] = [];
+        const existingIds = new Set(stored[colName].map((item) => item.id));
+        stored[colName].push(
+          ...SEED[colName].filter((item) => !existingIds.has(item.id)),
         );
       }
       return stored;

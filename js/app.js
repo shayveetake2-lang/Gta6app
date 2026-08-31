@@ -1,7 +1,6 @@
 import { DB, dbReady } from "./data.js";
 import { isConfigured, onAuthChange, isEmailUser, getDb, getUser } from "./firebase.js";
-import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, deleteDoc, doc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
-import { collection, addDoc, getDoc, getDocs, updateDoc, query, where, onSnapshot, deleteDoc, doc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, where, onSnapshot, deleteDoc, doc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 (function () {
   "use strict";
 
@@ -650,7 +649,7 @@ import { collection, addDoc, getDoc, getDocs, updateDoc, query, where, onSnapsho
         btn.disabled = true;
         btn.textContent = "Saving...";
 
-        addDoc(collection(getDb(), "user_achievements"), {
+        addDoc(fbCollection(getDb(), "user_achievements"), {
           userId: user.uid,
           game: gameVal,
           title: titleVal,
@@ -678,7 +677,7 @@ import { collection, addDoc, getDoc, getDocs, updateDoc, query, where, onSnapsho
         });
       });
 
-      var q = query(collection(getDb(), "user_achievements"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
+      var q = query(fbCollection(getDb(), "user_achievements"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
       window.manualAchUnsub = onSnapshot(q, function(snapshot) {
         var mGridCurrent = document.getElementById("manualGrid");
         if (!mGridCurrent) {
@@ -872,7 +871,7 @@ import { collection, addDoc, getDoc, getDocs, updateDoc, query, where, onSnapsho
           
           Data.getCurrentProfile().then(function(profile) {
             var name = profile && profile.displayName ? profile.displayName : (user.displayName || (user.email ? user.email.split('@')[0] : 'Anonymous User'));
-            return addDoc(collection(getDb(), "posts"), {
+            return addDoc(fbCollection(getDb(), "posts"), {
               text: text,
               category: category,
               userId: user.uid,
@@ -902,9 +901,9 @@ import { collection, addDoc, getDoc, getDocs, updateDoc, query, where, onSnapsho
         // Realtime Feed Listener
         var feedQuery;
         if (currentTab === "all") {
-          feedQuery = query(collection(getDb(), "posts"), orderBy("createdAt", "desc"));
+          feedQuery = query(fbCollection(getDb(), "posts"), orderBy("createdAt", "desc"));
         } else {
-          feedQuery = query(collection(getDb(), "posts"), where("category", "==", currentTab), orderBy("createdAt", "desc"));
+          feedQuery = query(fbCollection(getDb(), "posts"), where("category", "==", currentTab), orderBy("createdAt", "desc"));
         }
 
         window.feedUnsub = onSnapshot(feedQuery, function(snapshot) {
@@ -917,8 +916,6 @@ import { collection, addDoc, getDoc, getDocs, updateDoc, query, where, onSnapsho
           var html = "";
           var count = 0;
           
-          function renderPost(author, timeStr, badgeColor, categoryText, bodyText) {
-             return '<div class="post-card">' +
           function renderPost(author, timeStr, badgeColor, categoryText, bodyText, id, type) {
              var href = "";
              if (id) {
@@ -938,7 +935,6 @@ import { collection, addDoc, getDoc, getDocs, updateDoc, query, where, onSnapsho
                   '<span class="badge badge--' + badgeColor + '">' + esc(categoryText) + '</span>' +
                 '</div>' +
                 '<div class="post-body">' + esc(bodyText) + '</div>' +
-              '</div>';
               '</' + tag + '>';
           }
 
@@ -948,8 +944,6 @@ import { collection, addDoc, getDoc, getDocs, updateDoc, query, where, onSnapsho
             var data = docSnap.data();
             var dateStr = data.createdAt ? new Date(data.createdAt.toMillis()).toLocaleString() : "Just now";
             var badgeColor = "news";
-            if (data.category === "guides" || data.category === "Missions" || data.category === "MISSIONS") badgeColor = "guides";
-            if (data.category === "discussions") badgeColor = "discussions";
             var type = "post";
             if (data.category === "guides" || data.category === "Missions" || data.category === "MISSIONS") { badgeColor = "guides"; type = "guides"; }
             if (data.category === "discussions") { badgeColor = "discussions"; type = "discussions"; }
@@ -957,15 +951,12 @@ import { collection, addDoc, getDoc, getDocs, updateDoc, query, where, onSnapsho
             // Map specific tags to new colors
             var displayCat = data.category;
             if (data.category && typeof data.category === "string") {
-              if (data.category.toUpperCase() === "MISSIONS") { badgeColor = "missions"; displayCat = "MISSIONS"; }
-              if (data.category.toUpperCase() === "RACES") { badgeColor = "races"; displayCat = "RACES"; }
               if (data.category.toUpperCase() === "MISSIONS") { badgeColor = "missions"; displayCat = "MISSIONS"; type = "guides"; }
               if (data.category.toUpperCase() === "RACES") { badgeColor = "races"; displayCat = "RACES"; type = "guides"; }
               if (data.category.toUpperCase() === "CARS") { badgeColor = "cars"; displayCat = "CARS"; }
               if (data.category.toUpperCase() === "MONEY") { badgeColor = "money"; displayCat = "MONEY"; }
             }
 
-            html += renderPost(data.authorName, dateStr, badgeColor, displayCat, data.text);
             html += renderPost(data.authorName, dateStr, badgeColor, displayCat, data.text, docSnap.id, type);
           });
 
@@ -978,21 +969,17 @@ import { collection, addDoc, getDoc, getDocs, updateDoc, query, where, onSnapsho
             
             var pool = [];
             extraNews.forEach(function(n) { 
-              pool.push({ author: n.authorName || 'News Team', time: (n.dateAdded ? new Date(n.dateAdded).toLocaleString() : 'Recent'), badge: 'news', cat: 'News', text: n.title });
               pool.push({ id: n.id, type: 'news', author: n.authorName || 'News Team', time: (n.dateAdded ? new Date(n.dateAdded).toLocaleString() : 'Recent'), badge: 'news', cat: 'News', text: n.title });
             });
             extraGuides.forEach(function(g) { 
-              pool.push({ author: g.author || 'Guide Author', time: (g.updatedAt ? new Date(g.updatedAt).toLocaleString() : 'Recent'), badge: 'guides', cat: 'Guide', text: g.title });
               pool.push({ id: g.id, type: 'walkthroughs', author: g.author || 'Guide Author', time: (g.updatedAt ? new Date(g.updatedAt).toLocaleString() : 'Recent'), badge: 'guides', cat: 'Guide', text: g.title });
             });
             allThreads.forEach(function(t) { 
-              pool.push({ author: t.authorName || 'Forum User', time: (t.createdAt ? new Date(t.createdAt).toLocaleString() : 'Recent'), badge: 'discussions', cat: 'Discussion', text: t.title });
               pool.push({ id: t.id, type: 'thread', author: t.authorName || 'Forum User', time: (t.createdAt ? new Date(t.createdAt).toLocaleString() : 'Recent'), badge: 'discussions', cat: 'Discussion', text: t.title });
             });
 
             for (var i = 0; i < pool.length && count < 8; i++) {
               var p = pool[i];
-              html += renderPost(p.author, p.time, p.badge, p.cat, p.text);
               html += renderPost(p.author, p.time, p.badge, p.cat, p.text, p.id, p.type);
               count++;
             }
@@ -1650,7 +1637,6 @@ import { collection, addDoc, getDoc, getDocs, updateDoc, query, where, onSnapsho
       });
     },
 
-    "/news": function () {
     "/post": function (id) {
       if (!id) {
         location.hash = "#/";
@@ -3104,7 +3090,7 @@ import { collection, addDoc, getDoc, getDocs, updateDoc, query, where, onSnapsho
         function loadFeedPosts() {
           var el = document.getElementById("adminPanel-feed");
           if (!el) return;
-          getDocs(query(collection(getDb(), "posts"), orderBy("createdAt", "desc"))).then(function(snap) {
+          getDocs(query(fbCollection(getDb(), "posts"), orderBy("createdAt", "desc"))).then(function(snap) {
             var alertHtml = feedStatusMsg ? feedStatusMsg : "";
             if (snap.empty) {
               el.innerHTML = alertHtml + emptyState("No feed posts found.");
