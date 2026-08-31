@@ -22,21 +22,20 @@
 }
 
 [data-theme="light"] {
-  /* Enforce Dark Mode even if light theme is toggled for unified look, or just keep dark mode tokens */
-  --bg: #0d0d11;
-  --surface: #181820;
-  --surface-2: #22222a;
-  --border: #333340;
+  --bg: #f2f3f7;
+  --surface: #ffffff;
+  --surface-2: #e4e5eb;
+  --border: #dcdde1;
   --border-focus: #00f0ff;
-  --text: #f0f0f0;
-  --muted: #a0a0b0;
-  --accent: #ff007f;
+  --text: #1a1a24;
+  --muted: #5b5b6b;
+  --accent: #e01e5a;
   --accent-2: #00f0ff;
   --accent-ink: #ffffff;
-  --color-primary: #ff007f;
+  --color-primary: #e01e5a;
   --danger: #ff4757;
   --success: #2ed573;
-  --shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 * {
@@ -296,12 +295,12 @@ main {
   background:
     linear-gradient(
       135deg,
-      rgba(255, 0, 127, 0.15),
-      rgba(0, 240, 255, 0.1) 42%,
-      rgba(13, 13, 17, 0.95)
+      rgba(255, 0, 127, 0.05),
+      rgba(0, 240, 255, 0.05) 42%,
+      rgba(242, 243, 247, 0.95)
     ),
-    linear-gradient(rgba(0, 240, 255, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 240, 255, 0.05) 1px, transparent 1px);
+    linear-gradient(rgba(0, 240, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.1) 1px, transparent 1px);
   background-size:
     100% 100%,
     20px 20px,

@@ -791,25 +791,25 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
         }
 
         var introHtml = 
-          '<div class="post-card" style="margin-bottom: 2rem; border-top: 3px solid #00f0ff; background: linear-gradient(180deg, rgba(0,240,255,0.05) 0%, rgba(24,24,32,1) 100%);">' +
+          '<div class="post-card" style="margin-bottom: 2rem; border-top: 3px solid #00f0ff; background: linear-gradient(180deg, rgba(0,240,255,0.05) 0%, var(--surface) 100%);">' +
             '<div style="margin-bottom: 1.25rem;"><h2 style="color: #00f0ff; margin: 0; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em;">Welcome to Vice City Companion</h2></div>' +
-            '<p style="color: #ccc; margin-bottom: 1.5rem; line-height: 1.6; font-size: 0.95rem;">Your ultimate hub for exploring the world of GTA 6. Use the platform to navigate the community:</p>' +
+            '<p style="color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6; font-size: 0.95rem;">Your ultimate hub for exploring the world of GTA 6. Use the platform to navigate the community:</p>' +
             '<div style="display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">' +
-              '<div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border-left: 2px solid #e01e5a;">' +
-                '<strong style="color: #fff; display: block; margin-bottom: 0.25rem;">Feed & News</strong>' +
-                '<span style="color: #aaa; font-size: 0.85rem; line-height: 1.4;">Real-time posts, announcements, and rumors.</span>' +
+              '<div style="background: var(--surface-2); padding: 1rem; border-radius: 8px; border-left: 2px solid #e01e5a;">' +
+                '<strong style="color: var(--text); display: block; margin-bottom: 0.25rem;">Feed & News</strong>' +
+                '<span style="color: var(--muted); font-size: 0.85rem; line-height: 1.4;">Real-time posts, announcements, and rumors.</span>' +
               '</div>' +
-              '<div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border-left: 2px solid #00f0ff;">' +
-                '<strong style="color: #fff; display: block; margin-bottom: 0.25rem;">Walkthroughs</strong>' +
-                '<span style="color: #aaa; font-size: 0.85rem; line-height: 1.4;">Step-by-step guides for missions and collectibles.</span>' +
+              '<div style="background: var(--surface-2); padding: 1rem; border-radius: 8px; border-left: 2px solid #00f0ff;">' +
+                '<strong style="color: var(--text); display: block; margin-bottom: 0.25rem;">Walkthroughs</strong>' +
+                '<span style="color: var(--muted); font-size: 0.85rem; line-height: 1.4;">Step-by-step guides for missions and collectibles.</span>' +
               '</div>' +
-              '<div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border-left: 2px solid #FFD700;">' +
-                '<strong style="color: #fff; display: block; margin-bottom: 0.25rem;">Trophies (Sign In Required)</strong>' +
-                '<span style="color: #aaa; font-size: 0.85rem; line-height: 1.4;">Track achievements via Steam, PSN, or Xbox.</span>' +
+              '<div style="background: var(--surface-2); padding: 1rem; border-radius: 8px; border-left: 2px solid #FFD700;">' +
+                '<strong style="color: var(--text); display: block; margin-bottom: 0.25rem;">Trophies (Sign In Required)</strong>' +
+                '<span style="color: var(--muted); font-size: 0.85rem; line-height: 1.4;">Track achievements via Steam, PSN, or Xbox.</span>' +
               '</div>' +
-              '<div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border-left: 2px solid #28a745;">' +
-                '<strong style="color: #fff; display: block; margin-bottom: 0.25rem;">Forums</strong>' +
-                '<span style="color: #aaa; font-size: 0.85rem; line-height: 1.4;">Deep discussions, theories, and tech support.</span>' +
+              '<div style="background: var(--surface-2); padding: 1rem; border-radius: 8px; border-left: 2px solid #28a745;">' +
+                '<strong style="color: var(--text); display: block; margin-bottom: 0.25rem;">Forums</strong>' +
+                '<span style="color: var(--muted); font-size: 0.85rem; line-height: 1.4;">Deep discussions, theories, and tech support.</span>' +
               '</div>' +
             '</div>' +
           '</div>';
