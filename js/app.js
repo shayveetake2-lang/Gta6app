@@ -791,8 +791,8 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
         }
 
         var introHtml = 
-          '<div class="post-card" style="margin-bottom: 2rem; border-top: 3px solid #00f0ff; background: linear-gradient(180deg, rgba(0,240,255,0.05) 0%, var(--surface) 100%);">' +
-            '<div style="margin-bottom: 1.25rem;"><h2 style="color: var(--cyan-text); margin: 0; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em;">Welcome to Vice City Companion</h2></div>' +
+          '<div class="post-card" style="margin-bottom: 2rem; border-top: 3px solid var(--accent); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, transparent) 0%, var(--surface) 100%);">' +
+            '<div style="margin-bottom: 1.25rem;"><h2 style="color: var(--text); margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em;">Welcome to <span style="color: var(--accent);">Vice City</span> Companion</h2></div>' +
             '<p style="color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6; font-size: 0.95rem;">Your ultimate hub for exploring the world of GTA 6. Use the platform to navigate the community:</p>' +
             '<div style="display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">' +
               '<div style="background: var(--surface-2); padding: 1rem; border-radius: 8px; border-left: 2px solid #e01e5a;">' +
