@@ -516,11 +516,6 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
       }
 
       var user = getUser();
-      if (!user || user.isAnonymous) {
-        render(emptyState("Please log in or create an account to use the achievement tracker feature."));
-        if (window.manualAchUnsub) { window.manualAchUnsub(); window.manualAchUnsub = null; }
-        return;
-      }
 
       render(
         "" +
@@ -786,15 +781,27 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
         }
 
         var introHtml = 
-          '<div class="post-card" style="margin-bottom: 2rem; border-color: #e01e5a; box-shadow: 0 0 10px rgba(224, 30, 90, 0.15);">' +
-            '<div class="section-head" style="margin-bottom: 1rem; border-bottom: 1px solid #333; padding-bottom: 0.5rem;"><h2 style="color: #00f0ff;">Welcome to Vice City Companion</h2></div>' +
-            '<p style="color: #ccc; margin-bottom: 1rem; line-height: 1.6; font-size: 0.95rem;">This app is your ultimate hub for exploring the world of GTA 6. Use the platform to navigate the community:</p>' +
-            '<ul style="color: #aaa; padding-left: 1.5rem; margin-bottom: 0; line-height: 1.6; font-size: 0.9rem;">' +
-              '<li style="margin-bottom: 0.5rem;"><strong style="color: #fff;">Feed & News:</strong> Stay updated with real-time community posts, official announcements, and Vice City rumors.</li>' +
-              '<li style="margin-bottom: 0.5rem;"><strong style="color: #fff;">Walkthroughs:</strong> Read step-by-step guides for missions and collectibles, or publish your own guides.</li>' +
-              '<li style="margin-bottom: 0.5rem;"><strong style="color: #fff;">Trophies (Sign In Required):</strong> Track your unlocked achievements directly via your connected Xbox, PlayStation, or Steam accounts.</li>' +
-              '<li><strong style="color: #fff;">Forums:</strong> Dive into deep discussions, theories, and connect with fellow players.</li>' +
-            '</ul>' +
+          '<div class="post-card" style="margin-bottom: 2rem; border-top: 3px solid #00f0ff; background: linear-gradient(180deg, rgba(0,240,255,0.05) 0%, rgba(24,24,32,1) 100%);">' +
+            '<div style="margin-bottom: 1.25rem;"><h2 style="color: #00f0ff; margin: 0; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em;">Welcome to Vice City Companion</h2></div>' +
+            '<p style="color: #ccc; margin-bottom: 1.5rem; line-height: 1.6; font-size: 0.95rem;">Your ultimate hub for exploring the world of GTA 6. Use the platform to navigate the community:</p>' +
+            '<div style="display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">' +
+              '<div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border-left: 2px solid #e01e5a;">' +
+                '<strong style="color: #fff; display: block; margin-bottom: 0.25rem;">Feed & News</strong>' +
+                '<span style="color: #aaa; font-size: 0.85rem; line-height: 1.4;">Real-time posts, announcements, and rumors.</span>' +
+              '</div>' +
+              '<div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border-left: 2px solid #00f0ff;">' +
+                '<strong style="color: #fff; display: block; margin-bottom: 0.25rem;">Walkthroughs</strong>' +
+                '<span style="color: #aaa; font-size: 0.85rem; line-height: 1.4;">Step-by-step guides for missions and collectibles.</span>' +
+              '</div>' +
+              '<div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border-left: 2px solid #FFD700;">' +
+                '<strong style="color: #fff; display: block; margin-bottom: 0.25rem;">Trophies</strong>' +
+                '<span style="color: #aaa; font-size: 0.85rem; line-height: 1.4;">Track achievements via Steam, PSN, or Xbox.</span>' +
+              '</div>' +
+              '<div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border-left: 2px solid #28a745;">' +
+                '<strong style="color: #fff; display: block; margin-bottom: 0.25rem;">Forums</strong>' +
+                '<span style="color: #aaa; font-size: 0.85rem; line-height: 1.4;">Deep discussions, theories, and tech support.</span>' +
+              '</div>' +
+            '</div>' +
           '</div>';
 
         render(
@@ -3231,12 +3238,6 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
   // Auth state listener — updates the topbar and re-renders the current view on sign-in/out.
   onAuthChange(async function (user) {
     currentAuthUser = user;
-    var navAch = document.getElementById("navAchievements");
-    var tabAch = document.getElementById("tabAchievements");
-    var showAch = user && !user.isAnonymous;
-    if (navAch) navAch.style.display = showAch ? "" : "none";
-    if (tabAch) tabAch.style.display = showAch ? "" : "none";
-
     if (isEmailUser() && user) {
       currentProfile = await DB.getCurrentProfile();
     } else {
