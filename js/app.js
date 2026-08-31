@@ -520,7 +520,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
         render(
           '<div style="max-width: 600px; margin: 4rem auto; text-align: center;">' +
             '<h2 style="color: #e01e5a; margin-bottom: 1rem;">Sign in required</h2>' +
-            '<p style="color: #aaa; margin-bottom: 2rem;">You must be signed in to access the Trophy Tracker.</p>' +
+            '<p style="color: var(--muted); margin-bottom: 2rem;">You must be signed in to access the Trophy Tracker.</p>' +
             '<a href="#/login" class="btn btn--primary" style="background:#00f0ff; border-color:#00f0ff; color:#111;">Sign In</a>' +
           '</div>'
         );
@@ -541,9 +541,9 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
           '<button class="btn btn--primary" type="submit">Load achievements</button>' +
           "</form>" +
           '<div id="achievementResults" aria-live="polite" style="padding-top: 1rem;">' +
-          '<div style="color: #aaa; font-size: 0.9rem;">Enter an account and game ID to load achievements.</div>' +
+          '<div style="color: var(--muted); font-size: 0.9rem;">Enter an account and game ID to load achievements.</div>' +
           "</div>" +
-          '<hr style="margin: 3rem 0; border: 1px solid #333;" />' +
+          '<hr style="margin: 3rem 0; border: 1px solid var(--border);" />' +
           '<div id="manualAchievementsContainer"></div>',
       );
 
@@ -696,9 +696,9 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
           var displayDate = data.dateGot ? esc(data.dateGot) : dateStr;
           var displayGame = data.game ? esc(data.game) : "Unknown Game";
           
-          html += '<div class="card" style="background: #181820; border: 1px solid #333; position: relative;">' +
+          html += '<div class="card" style="background: var(--surface); border: 1px solid var(--border); position: relative;">' +
             '<p class="card__meta" style="margin: 0 0 0.25rem 0; font-size: 0.75rem;">' + displayGame + '</p>' +
-            '<h3 style="margin-top: 0; margin-bottom: 0.5rem; color: #fff; padding-right: 2rem;">' + esc(data.title) + '</h3>' +
+            '<h3 style="margin-top: 0; margin-bottom: 0.5rem; color: var(--text); padding-right: 2rem;">' + esc(data.title) + '</h3>' +
             '<span class="badge" style="background: ' + pColor + '; color: #fff; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; display: inline-block; margin-bottom: 0.5rem;">' + esc(data.platform) + '</span><br>' +
             '<span class="card__meta" style="font-size: 0.75rem;">Unlocked: ' + displayDate + '</span>' +
             '<button class="btn btn--sm btn--danger del-manual-btn" data-id="' + docSnap.id + '" style="position: absolute; top: 0.5rem; right: 0.5rem; padding: 0.25rem 0.5rem; line-height: 1;">✕</button>' +
@@ -792,7 +792,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
 
         var introHtml = 
           '<div class="post-card" style="margin-bottom: 2rem; border-top: 3px solid #00f0ff; background: linear-gradient(180deg, rgba(0,240,255,0.05) 0%, var(--surface) 100%);">' +
-            '<div style="margin-bottom: 1.25rem;"><h2 style="color: #00f0ff; margin: 0; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em;">Welcome to Vice City Companion</h2></div>' +
+            '<div style="margin-bottom: 1.25rem;"><h2 style="color: var(--cyan-text); margin: 0; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em;">Welcome to Vice City Companion</h2></div>' +
             '<p style="color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6; font-size: 0.95rem;">Your ultimate hub for exploring the world of GTA 6. Use the platform to navigate the community:</p>' +
             '<div style="display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">' +
               '<div style="background: var(--surface-2); padding: 1rem; border-radius: 8px; border-left: 2px solid #e01e5a;">' +
@@ -847,7 +847,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
             '<div class="auth-modal">' +
               '<button type="button" class="auth-modal-close" id="authModalClose">&times;</button>' +
               '<h3>Log in to post on feed</h3>' +
-              '<p style="margin-bottom:1.5rem; color:#aaa;">You must be signed in to contribute to the community feed.</p>' +
+              '<p style="margin-bottom:1.5rem; color: var(--muted);">You must be signed in to contribute to the community feed.</p>' +
               '<a href="#/login" class="btn btn--primary" style="background:#00f0ff; border-color:#00f0ff; color:#111; width:100%;">Sign In</a>' +
             '</div>' +
           '</div>'
@@ -2350,7 +2350,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                   DB.approveWalkthrough(id, { category: catVal })
                     .then(function () {
                       pendingStatusMsg =
-                        '<div class="admin-notice" style="margin-bottom:1.5rem;padding:1rem 1.25rem;border-radius:var(--radius-sm);background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#fff;">' +
+                        '<div class="admin-notice" style="margin-bottom:1.5rem;padding:1rem 1.25rem;border-radius:var(--radius-sm);background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:var(--text);">' +
                         '<div style="font-weight:bold;color:#4ade80;font-size:1rem;margin-bottom:.25rem;">✅ Walkthrough Approved and Published!</div>' +
                         '<p style="margin:0 0 .75rem;font-size:.9rem;color:var(--text);">“<strong>' +
                         esc(title) +
@@ -2379,7 +2379,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                   DB.updatePendingWalkthroughCategory(id, catVal)
                     .then(function () {
                       pendingStatusMsg =
-                        '<div class="admin-notice" style="margin-bottom:1.5rem;padding:1rem 1.25rem;border-radius:var(--radius-sm);background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#fff;">' +
+                        '<div class="admin-notice" style="margin-bottom:1.5rem;padding:1rem 1.25rem;border-radius:var(--radius-sm);background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:var(--text);">' +
                         '<div style="font-weight:bold;color:#4ade80;font-size:1rem;margin-bottom:.25rem;">✅ Pending Category Updated</div>' +
                         '<p style="margin:0;font-size:.9rem;color:var(--text);">The filter category has been updated successfully.</p>' +
                         "</div>";
@@ -2402,7 +2402,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                   DB.deletePendingWalkthrough(id)
                     .then(function () {
                       pendingStatusMsg =
-                        '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fff;">' +
+                        '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:var(--text);">' +
                         '<div style="font-weight:bold;color:#f87171;font-size:.92rem;">🗑️ Pending Walkthrough Deleted</div>' +
                         '<p style="margin:0;font-size:.88rem;color:var(--text);">“' +
                         esc(title) +
@@ -2544,7 +2544,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                 DB.deleteWalkthrough(id)
                   .then(function () {
                     publishedStatusMsg =
-                      '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fff;">' +
+                      '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:var(--text);">' +
                       '<div style="font-weight:bold;color:#f87171;font-size:.92rem;">🗑️ Walkthrough Removed</div>' +
                       '<p style="margin:0;font-size:.88rem;color:var(--text);">“' +
                       esc(title) +
@@ -2571,7 +2571,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                 DB.updateWalkthroughCategory(id, catVal)
                   .then(function () {
                     publishedStatusMsg =
-                      '<div class="admin-notice" style="margin-bottom:1.5rem;padding:1rem 1.25rem;border-radius:var(--radius-sm);background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#fff;">' +
+                      '<div class="admin-notice" style="margin-bottom:1.5rem;padding:1rem 1.25rem;border-radius:var(--radius-sm);background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:var(--text);">' +
                       '<div style="font-weight:bold;color:#4ade80;font-size:1rem;margin-bottom:.25rem;">✅ Category Updated Successfully</div>' +
                       '<p style="margin:0;font-size:.9rem;color:var(--text);">The live guide filter category has been updated.</p>' +
                       "</div>";
@@ -2777,7 +2777,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                 DB.deleteThread(id)
                   .then(function () {
                     moderationStatusMsg =
-                      '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fff;">' +
+                      '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:var(--text);">' +
                       '<div style="font-weight:bold;color:#f87171;font-size:.92rem;">🗑️ Thread Deleted</div>' +
                       '<p style="margin:0;font-size:.88rem;color:var(--text);">“' +
                       esc(title) +
@@ -2932,7 +2932,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                 DB.setUserRole(id, "Admin")
                   .then(function () {
                     userStatusMsg =
-                      '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#fff;">' +
+                      '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:var(--text);">' +
                       '<div style="font-weight:bold;color:#4ade80;font-size:.92rem;">👑 Admin Role Granted</div>' +
                       '<p style="margin:0;font-size:.88rem;color:var(--text);"><strong>@' +
                       esc(username) +
@@ -2971,7 +2971,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                 DB.setUserRole(id, "Member")
                   .then(function () {
                     userStatusMsg =
-                      '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(245,158,11,0.15);border:1px solid #f59e0b;color:#fff;">' +
+                      '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(245,158,11,0.15);border:1px solid #f59e0b;color:var(--text);">' +
                       '<div style="font-weight:bold;color:#fbbf24;font-size:.92rem;">👤 Admin Role Removed</div>' +
                       '<p style="margin:0;font-size:.88rem;color:var(--text);"><strong>@' +
                       esc(username) +
@@ -3008,7 +3008,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                 DB.deleteUser(id)
                   .then(function () {
                     userStatusMsg =
-                      '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fff;">' +
+                      '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem 1.15rem;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:var(--text);">' +
                       '<div style="font-weight:bold;color:#f87171;font-size:.92rem;">🗑️ User Deleted</div>' +
                       '<p style="margin:0;font-size:.88rem;color:var(--text);">User @' +
                       esc(username) +
@@ -3069,7 +3069,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                 btn.disabled = true;
                 btn.textContent = "Deleting...";
                 deleteDoc(doc(getDb(), "posts", btn.dataset.id)).then(function() {
-                  feedStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem;background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#fff;">Post deleted successfully.</div>';
+                  feedStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem;background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:var(--text);">Post deleted successfully.</div>';
                   loadFeedPosts();
                 }).catch(function(err) {
                   feedStatusMsg = '<div class="admin-notice form-error is-visible" style="margin-bottom:1.5rem;">Error deleting post: ' + esc(err.message) + '</div>';
@@ -3089,7 +3089,7 @@ import { collection, addDoc, getDocs, updateDoc, query, where, onSnapshot, delet
                   btn.disabled = true;
                   btn.textContent = "Saving...";
                   updateDoc(doc(getDb(), "posts", btn.dataset.id), { text: newText.trim() }).then(function() {
-                    feedStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem;background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#fff;">Post updated successfully.</div>';
+                    feedStatusMsg = '<div class="admin-notice" style="margin-bottom:1.5rem;padding:.85rem;background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:var(--text);">Post updated successfully.</div>';
                     loadFeedPosts();
                   }).catch(function(err) {
                     feedStatusMsg = '<div class="admin-notice form-error is-visible" style="margin-bottom:1.5rem;">Error updating post: ' + esc(err.message) + '</div>';

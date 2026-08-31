@@ -9,6 +9,7 @@
   --muted: #a0a0b0;
   --accent: #ff007f;
   --accent-2: #00f0ff;
+  --cyan-text: #00f0ff;
   --accent-ink: #ffffff;
   --color-primary: #ff007f;
   --danger: #ff4757;
@@ -22,6 +23,7 @@
 }
 
 [data-theme="light"] {
+  --cyan-text: #0099cc;
   --bg: #f2f3f7;
   --surface: #ffffff;
   --surface-2: #e4e5eb;
@@ -31,6 +33,7 @@
   --muted: #5b5b6b;
   --accent: #e01e5a;
   --accent-2: #00f0ff;
+  --cyan-text: #00f0ff;
   --accent-ink: #ffffff;
   --color-primary: #e01e5a;
   --danger: #ff4757;
@@ -136,7 +139,7 @@ textarea:focus-visible,
   height: 32px;
   border-radius: 9px;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #fff;
+  color: var(--text);
   font-weight: 800;
   font-size: 0.78rem;
   letter-spacing: 0.5px;
@@ -2869,7 +2872,7 @@ a[href="#/admin"]:hover {
   font-size: 0.9rem;
   white-space: nowrap;
   background: transparent;
-  color: #fff;
+  color: var(--text);
   border: 1px solid #00f0ff;
   box-shadow: 0 0 5px rgba(0, 240, 255, 0.3);
   transition: all 0.2s;
@@ -2881,17 +2884,17 @@ a[href="#/admin"]:hover {
 }
 
 .post-card {
-  background: #181820;
+  background: var(--surface);
   border-radius: 8px;
   padding: 1.25rem;
   margin-bottom: 1.5rem;
-  border: 1px solid #333;
+  border: 1px solid var(--border);
 }
 .post-form-textarea {
   width: 100%;
   background: transparent;
   border: none;
-  color: #fff;
+  color: var(--text);
   font-size: 1rem;
   font-family: inherit;
   resize: vertical;
@@ -2903,13 +2906,13 @@ a[href="#/admin"]:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1px solid #333;
+  border-top: 1px solid var(--border);
   padding-top: 1rem;
 }
 .post-form-select {
-  background: #0d0d11;
-  color: #fff;
-  border: 1px solid #333;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
   padding: 0.5rem;
   border-radius: 4px;
   font-size: 0.85rem;
@@ -2923,33 +2926,33 @@ a[href="#/admin"]:hover {
 }
 .post-author {
   font-weight: bold;
-  color: #fff;
+  color: var(--text);
 }
 .post-time {
   font-size: 0.8rem;
-  color: #888;
+  color: var(--muted);
 }
 .post-body {
-  color: #ddd;
+  color: var(--text);
   line-height: 1.5;
   margin-bottom: 1rem;
   white-space: pre-wrap;
 }
 
 .empty-feed {
-  background: #181820;
+  background: var(--surface);
   border: 1px solid #00f0ff;
   box-shadow: inset 0 0 15px rgba(0, 240, 255, 0.1);
   padding: 3rem 1.5rem;
   text-align: center;
   border-radius: 8px;
-  color: #00f0ff;
+  color: var(--cyan-text);
   font-weight: bold;
 }
 
 /* Skeleton Loading */
 .skeleton-post {
-  background: #181820;
+  background: var(--surface);
   border: 1px solid rgba(0, 240, 255, 0.3);
   box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);
   border-radius: 8px;
@@ -2961,12 +2964,12 @@ a[href="#/admin"]:hover {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #333;
+  background: var(--border);
   margin-right: 1rem;
 }
 .skeleton-line {
   height: 1rem;
-  background: #333;
+  background: var(--border);
   border-radius: 4px;
   margin-bottom: 0.5rem;
 }
@@ -2979,12 +2982,12 @@ a[href="#/admin"]:hover {
   100% { opacity: 0.6; }
 }
 
-.badge--missions { background: #007bff; color: #fff; }
-.badge--races { background: #ff7f50; color: #fff; }
-.badge--cars { background: #28a745; color: #fff; }
-.badge--news { background: #6c757d; color: #fff; }
-.badge--guides { background: #17a2b8; color: #fff; }
-.badge--discussions { background: #6f42c1; color: #fff; }
+.badge--missions { background: #007bff; color: var(--text); }
+.badge--races { background: #ff7f50; color: var(--text); }
+.badge--cars { background: #28a745; color: var(--text); }
+.badge--news { background: #6c757d; color: var(--text); }
+.badge--guides { background: #17a2b8; color: var(--text); }
+.badge--discussions { background: #6f42c1; color: var(--text); }
 
 /* Refined Feed Post Hover */
 @media (hover: hover) {
@@ -3001,7 +3004,7 @@ a[href="#/admin"]:hover {
 .auth-modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(13, 13, 17, 0.85);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
   backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
@@ -3016,7 +3019,7 @@ a[href="#/admin"]:hover {
   pointer-events: auto;
 }
 .auth-modal {
-  background: #181820;
+  background: var(--surface);
   padding: 2.5rem;
   border-radius: 12px;
   border: 1px solid #00f0ff;
@@ -3037,17 +3040,17 @@ a[href="#/admin"]:hover {
   right: 15px;
   background: transparent;
   border: none;
-  color: #fff;
+  color: var(--text);
   font-size: 1.5rem;
   cursor: pointer;
 }
 .auth-modal h3 {
   margin-top: 0;
-  color: #00f0ff;
+  color: var(--cyan-text);
 }
 
 /* Category Pill Additions */
-.badge--missions { background: #007bff; color: #fff; }
-.badge--races { background: #ff7f50; color: #fff; }
-.badge--cars { background: #28a745; color: #fff; }
+.badge--missions { background: #007bff; color: var(--text); }
+.badge--races { background: #ff7f50; color: var(--text); }
+.badge--cars { background: #28a745; color: var(--text); }
 .badge--money { background: #FFD700; color: #111; }
