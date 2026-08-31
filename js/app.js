@@ -744,24 +744,21 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
         });
         
         var user = getUser();
-        var formHtml = "";
-        
-        if (!user || user.isAnonymous) {
-          formHtml = emptyState("MISSION LOCKED - CLASSIFIED INTEL: Log in to create a post");
-        } else {
-          formHtml = 
-            '<form id="quickShareForm" class="post-card">' +
-              '<textarea id="qsText" class="post-form-textarea" required placeholder="What\'s on your mind? Drop a tip, ask a question, or share some news..."></textarea>' +
-              '<div class="post-form-footer">' +
-                '<select id="qsCategory" class="post-form-select">' +
-                  '<option value="news">News</option>' +
-                  '<option value="guides">Guide</option>' +
-                  '<option value="discussions">Discussion</option>' +
-                '</select>' +
-                '<button type="submit" id="qsBtn" class="btn btn--primary" style="background:#e01e5a; border-color:#e01e5a;">Post</button>' +
-              '</div>' +
-            '</form>';
-        }
+        var isAuth = user && !user.isAnonymous;
+        var placeholderText = isAuth ? "What's on your mind? Drop a tip, ask a question, or share some news..." : "Sign in to post...";
+
+        var formHtml = 
+          '<form id="quickShareForm" class="post-card">' +
+            '<textarea id="qsText" class="post-form-textarea" required placeholder="' + placeholderText + '"></textarea>' +
+            '<div class="post-form-footer">' +
+              '<select id="qsCategory" class="post-form-select">' +
+                '<option value="news">News</option>' +
+                '<option value="guides">Guide</option>' +
+                '<option value="discussions">Discussion</option>' +
+              '</select>' +
+              '<button type="submit" id="qsBtn" class="btn btn--primary" style="background:#e01e5a; border-color:#e01e5a;">Post</button>' +
+            '</div>' +
+          '</form>';
 
         var tabsHtml = 
           '<div class="feed-tabs">' +
@@ -815,38 +812,57 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
                   "</div>"
                 : "") +
             '</div>' +
+          '</div>' +
+          '<div id="authModalOverlay" class="auth-modal-overlay">' +
+            '<div class="auth-modal">' +
+              '<button type="button" class="auth-modal-close" id="authModalClose">&times;</button>' +
+              '<h3>Log in to post on feed</h3>' +
+              '<p style="margin-bottom:1.5rem; color:#aaa;">You must be signed in to contribute to the community feed.</p>' +
+              '<a href="#/login" class="btn btn--primary" style="background:#00f0ff; border-color:#00f0ff; color:#111; width:100%;">Sign In</a>' +
+            '</div>' +
           '</div>'
         );
 
         // Bind form submit
-        if (user && !user.isAnonymous) {
-          var qsForm = document.getElementById("quickShareForm");
-          qsForm.addEventListener("submit", function(e) {
-            e.preventDefault();
-            var qsBtn = document.getElementById("qsBtn");
-            qsBtn.disabled = true;
-            qsBtn.textContent = "Posting...";
-            
-            var text = document.getElementById("qsText").value.trim();
-            var category = document.getElementById("qsCategory").value;
-            
-            addDoc(collection(getDb(), "posts"), {
-              text: text,
-              category: category,
-              userId: user.uid,
-              authorName: user.displayName || 'Anonymous User',
-              createdAt: serverTimestamp()
-            }).then(function() {
-              document.getElementById("qsText").value = "";
-              qsBtn.disabled = false;
-              qsBtn.textContent = "Post";
-            }).catch(function(err) {
-              console.error(err);
-              alert("Error: " + err.message);
-              qsBtn.disabled = false;
-              qsBtn.textContent = "Post";
-            });
+        var qsForm = document.getElementById("quickShareForm");
+        qsForm.addEventListener("submit", function(e) {
+          e.preventDefault();
+          if (!isAuth) {
+             document.getElementById("authModalOverlay").classList.add("active");
+             return;
+          }
+          
+          var qsBtn = document.getElementById("qsBtn");
+          qsBtn.disabled = true;
+          qsBtn.textContent = "Posting...";
+          
+          var text = document.getElementById("qsText").value.trim();
+          var category = document.getElementById("qsCategory").value;
+          
+          addDoc(collection(getDb(), "posts"), {
+            text: text,
+            category: category,
+            userId: user.uid,
+            authorName: user.displayName || 'Anonymous User',
+            createdAt: serverTimestamp()
+          }).then(function() {
+            document.getElementById("qsText").value = "";
+            qsBtn.disabled = false;
+            qsBtn.textContent = "Post";
+          }).catch(function(err) {
+            console.error(err);
+            alert("Error: " + err.message);
+            qsBtn.disabled = false;
+            qsBtn.textContent = "Post";
           });
+        });
+
+        // Bind Modal Close
+        var closeBtn = document.getElementById("authModalClose");
+        var overlay = document.getElementById("authModalOverlay");
+        if (closeBtn && overlay) {
+           closeBtn.addEventListener("click", function() { overlay.classList.remove("active"); });
+           overlay.addEventListener("click", function(e) { if(e.target === overlay) overlay.classList.remove("active"); });
         }
 
         // Realtime Feed Listener
@@ -863,35 +879,72 @@ import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTim
             if (window.feedUnsub) { window.feedUnsub(); window.feedUnsub = null; }
             return;
           }
-          if (snapshot.empty) {
-            feedContainer.innerHTML = '<div class="empty-feed">MISSION LOCKED - CLASSIFIED INTEL: BE THE FIRST TO POST</div>';
-            return;
-          }
 
           var html = "";
-          
           var count = 0;
+          
+          function renderPost(author, timeStr, badgeColor, categoryText, bodyText) {
+             return '<div class="post-card">' +
+                '<div class="post-header">' +
+                  '<div>' +
+                    '<div class="post-author">' + esc(author) + '</div>' +
+                    '<div class="post-time">' + timeStr + '</div>' +
+                  '</div>' +
+                  '<span class="badge badge--' + badgeColor + '">' + esc(categoryText) + '</span>' +
+                '</div>' +
+                '<div class="post-body">' + esc(bodyText) + '</div>' +
+              '</div>';
+          }
+
           snapshot.forEach(function(docSnap) {
             if (count >= 15) return;
             count++;
             var data = docSnap.data();
             var dateStr = data.createdAt ? new Date(data.createdAt.toMillis()).toLocaleString() : "Just now";
             var badgeColor = "news";
-            if (data.category === "guides") badgeColor = "guides";
+            if (data.category === "guides" || data.category === "Missions" || data.category === "MISSIONS") badgeColor = "guides";
             if (data.category === "discussions") badgeColor = "discussions";
+            
+            // Map specific tags to new colors
+            var displayCat = data.category;
+            if (data.category && typeof data.category === "string") {
+              if (data.category.toUpperCase() === "MISSIONS") { badgeColor = "missions"; displayCat = "MISSIONS"; }
+              if (data.category.toUpperCase() === "RACES") { badgeColor = "races"; displayCat = "RACES"; }
+              if (data.category.toUpperCase() === "CARS") { badgeColor = "cars"; displayCat = "CARS"; }
+              if (data.category.toUpperCase() === "MONEY") { badgeColor = "money"; displayCat = "MONEY"; }
+            }
 
-            html += 
-              '<div class="post-card">' +
-                '<div class="post-header">' +
-                  '<div>' +
-                    '<div class="post-author">' + esc(data.authorName) + '</div>' +
-                    '<div class="post-time">' + dateStr + '</div>' +
-                  '</div>' +
-                  '<span class="badge badge--' + badgeColor + '">' + esc(data.category) + '</span>' +
-                '</div>' +
-                '<div class="post-body">' + esc(data.text) + '</div>' +
-              '</div>';
+            html += renderPost(data.authorName, dateStr, badgeColor, displayCat, data.text);
           });
+
+          // Backfilling if sparse (< 8)
+          if (count < 8) {
+            // Take items not shown in sidebar (sidebar has res[0].slice(0,3) and res[1].slice(0,3))
+            var extraNews = res[0].slice(3);
+            var extraGuides = res[1].slice(3);
+            var allThreads = res[2];
+            
+            var pool = [];
+            extraNews.forEach(function(n) { 
+              pool.push({ author: n.authorName || 'News Team', time: (n.dateAdded ? new Date(n.dateAdded).toLocaleString() : 'Recent'), badge: 'news', cat: 'News', text: n.title });
+            });
+            extraGuides.forEach(function(g) { 
+              pool.push({ author: g.author || 'Guide Author', time: (g.updatedAt ? new Date(g.updatedAt).toLocaleString() : 'Recent'), badge: 'guides', cat: 'Guide', text: g.title });
+            });
+            allThreads.forEach(function(t) { 
+              pool.push({ author: t.authorName || 'Forum User', time: (t.createdAt ? new Date(t.createdAt).toLocaleString() : 'Recent'), badge: 'discussions', cat: 'Discussion', text: t.title });
+            });
+
+            for (var i = 0; i < pool.length && count < 8; i++) {
+              var p = pool[i];
+              html += renderPost(p.author, p.time, p.badge, p.cat, p.text);
+              count++;
+            }
+          }
+
+          if (!html) {
+             html = '<div class="empty-feed">MISSION LOCKED - CLASSIFIED INTEL: BE THE FIRST TO POST</div>';
+          }
           feedContainer.innerHTML = html;
         }, function(error) {
            console.error("Feed snapshot error:", error);
