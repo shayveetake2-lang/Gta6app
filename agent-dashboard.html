@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GTA 6 Live Core - Content Stream</title>
+    <style>
+        body { background: #0A0A0C; color: #F1F1F4; padding: 16px; font-family: sans-serif; min-height: 100vh; margin: 0; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #FE005D; padding-bottom: 12px; }
+        .header h1 { font-size: 24px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin: 0; color: #FE005D; }
+        select { background: #1A1A24; color: #fff; border: 1px solid #3A3A4F; padding: 6px 12px; border-radius: 6px; }
+        .post-card { background: #12121A; border-radius: 10px; padding: 20px; margin-bottom: 16px; border: 1px solid #222230; margin-top: 20px;}
+        .post-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .badge { color: #000; font-weight: bold; font-size: 11px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; }
+        .badge.news { background: #FE005D; }
+        .badge.walkthrough { background: #00D2FF; }
+        .post-title { font-size: 18px; color: #fff; margin: 0 0 10px 0; }
+        .post-content { color: #B5B5C3; font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>GTA VI Live Core</h1>
+        <select id="filterSelect">
+            <option value="All">All Stream Content</option>
+            <option value="News">Latest News Updates</option>
+            <option value="Walkthrough">Walkthrough Guides</option>
+        </select>
+    </div>
+
+    <div id="postsContainer" style="margin-top: 20px;">
+        <p style="color: #6A6A7F">Loading Vice City Feeds...</p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+        import { getFirestore, collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+        
+        // Connect to the initialized project
+        fetch('/__/firebase/init.json').then(async response => {
+            const firebaseConfig = await response.json();
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+
+            const postsContainer = document.getElementById('postsContainer');
+            const filterSelect = document.getElementById('filterSelect');
+            let allPosts = [];
+
+            function renderPosts() {
+                const filter = filterSelect.value;
+                const filtered = allPosts.filter(p => filter === 'All' || p.category === filter);
+                
+                if (filtered.length === 0) {
+                    postsContainer.innerHTML = '<p style="color: #6A6A7F">No matching published articles available yet.</p>';
+                    return;
+                }
+
+                postsContainer.innerHTML = filtered.map(post => `
+                    <article class="post-card">
+                        <div class="post-header">
+                            <span class="badge ${post.category === 'News' ? 'news' : 'walkthrough'}">${post.category || 'News'}</span>
+                            <small style="color: #6A6A7F">${new Date(post.timestamp).toLocaleDateString()}</small>
+                        </div>
+                        <h2 class="post-title">${post.title}</h2>
+                        <div class="post-content">${post.content}</div>
+                    </article>
+                `).join('');
+            }
+
+            filterSelect.addEventListener('change', renderPosts);
+
+            const q = query(collection(db, "gta_news_posts"), where("status", "==", "published"), orderBy("timestamp", "desc"));
+            
+            onSnapshot(q, (snapshot) => {
+                allPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderPosts();
+            }, (error) => {
+                console.error("Error fetching live streams:", error);
+                postsContainer.innerHTML = '<p style="color: #FE005D">Error loading feeds. Please check permissions.</p>';
+            });
+        });
+    </script>
+</body>
+</html>
+
