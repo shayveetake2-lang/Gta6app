@@ -3018,6 +3018,12 @@ a[href="#/admin"]:hover {
   margin-bottom: 1.5rem;
   border: 1px solid var(--border);
 }
+a.post-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
 .post-form-textarea {
   width: 100%;
   background: transparent;
