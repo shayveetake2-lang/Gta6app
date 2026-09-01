@@ -76,6 +76,8 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
 
   /* ---------- helpers ---------- */
 
+  var POST_MAX_LEN = 500;
+
   function esc(value) {
     return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
       return {
@@ -86,6 +88,37 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
         "'": "&#39;",
       }[c];
     });
+  }
+
+  function pad2(n) {
+    return String(n).padStart(2, "0");
+  }
+
+  function formatDateDMY(value) {
+    if (!value) return "";
+    if (typeof value === "string") {
+      var iso = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (iso) return iso[3] + "/" + iso[2] + "/" + iso[1];
+      var parsed = new Date(value);
+      if (!isNaN(parsed.getTime())) {
+        return (
+          pad2(parsed.getDate()) +
+          "/" +
+          pad2(parsed.getMonth() + 1) +
+          "/" +
+          parsed.getFullYear()
+        );
+      }
+      return value;
+    }
+    var ms = null;
+    if (typeof value.toMillis === "function") ms = value.toMillis();
+    else if (typeof value.toDate === "function") ms = value.toDate().getTime();
+    else if (value instanceof Date) ms = value.getTime();
+    else if (typeof value === "number") ms = value;
+    if (ms == null || isNaN(ms)) return "";
+    var d = new Date(ms);
+    return pad2(d.getDate()) + "/" + pad2(d.getMonth() + 1) + "/" + d.getFullYear();
   }
 
   function initials(name) {
@@ -693,8 +726,11 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
         snapshot.forEach(function(docSnap) {
           var data = docSnap.data();
           var pColor = data.platform === "Steam" ? "#1b2838" : data.platform === "Xbox" ? "#107c10" : "#00439c";
-          var dateStr = data.createdAt ? new Date(data.createdAt.toMillis()).toLocaleDateString() : "Just now";
-          var displayDate = data.dateGot ? esc(data.dateGot) : dateStr;
+          var displayDate = esc(
+            formatDateDMY(data.dateGot) ||
+              formatDateDMY(data.createdAt) ||
+              "Just now"
+          );
           var displayGame = data.game ? esc(data.game) : "Unknown Game";
           
           html += '<div class="card" style="background: var(--surface); border: 1px solid var(--border); position: relative;">' +
@@ -755,14 +791,17 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
 
         var formHtml = 
           '<form id="quickShareForm" class="post-card">' +
-            '<textarea id="qsText" class="post-form-textarea" required placeholder="' + placeholderText + '"></textarea>' +
+            '<textarea id="qsText" class="post-form-textarea" required maxlength="' + POST_MAX_LEN + '" placeholder="' + placeholderText + '"></textarea>' +
             '<div class="post-form-footer">' +
               '<select id="qsCategory" class="post-form-select">' +
                 '<option value="news">News</option>' +
                 '<option value="guides">Guide</option>' +
                 '<option value="discussions">Discussion</option>' +
               '</select>' +
-              '<button type="submit" id="qsBtn" class="btn btn--primary" style="background:#e01e5a; border-color:#e01e5a;">Post</button>' +
+              '<div class="post-form-actions">' +
+                '<span id="qsCount" class="post-form-count">0 / ' + POST_MAX_LEN + '</span>' +
+                '<button type="submit" id="qsBtn" class="btn btn--primary" style="background:#e01e5a; border-color:#e01e5a;">Post</button>' +
+              '</div>' +
             '</div>' +
           '</form>';
 
@@ -856,18 +895,42 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
 
         // Bind form submit
         var qsForm = document.getElementById("quickShareForm");
+        var qsText = document.getElementById("qsText");
+        var qsCount = document.getElementById("qsCount");
+        var qsBtn = document.getElementById("qsBtn");
+
+        function updateQsCount() {
+          if (!qsText || !qsCount) return;
+          var len = qsText.value.length;
+          qsCount.textContent = len + " / " + POST_MAX_LEN;
+          var over = len > POST_MAX_LEN;
+          qsCount.classList.toggle("post-form-count--error", over);
+          if (qsBtn && qsBtn.textContent !== "Posting...") {
+            qsBtn.disabled = over;
+          }
+        }
+
+        if (qsText) {
+          qsText.addEventListener("input", updateQsCount);
+          updateQsCount();
+        }
+
         qsForm.addEventListener("submit", function(e) {
           e.preventDefault();
           if (!isAuth) {
              document.getElementById("authModalOverlay").classList.add("active");
              return;
           }
-          
-          var qsBtn = document.getElementById("qsBtn");
+
+          var text = document.getElementById("qsText").value.trim();
+          if (!text || text.length > POST_MAX_LEN) {
+            updateQsCount();
+            return;
+          }
+
           qsBtn.disabled = true;
           qsBtn.textContent = "Posting...";
-          
-          var text = document.getElementById("qsText").value.trim();
+
           var category = document.getElementById("qsCategory").value;
           
           Data.getCurrentProfile().then(function(profile) {
@@ -883,11 +946,13 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
             document.getElementById("qsText").value = "";
             qsBtn.disabled = false;
             qsBtn.textContent = "Post";
+            updateQsCount();
           }).catch(function(err) {
             console.error(err);
             alert("Error: " + err.message);
             qsBtn.disabled = false;
             qsBtn.textContent = "Post";
+            updateQsCount();
           });
         });
 
