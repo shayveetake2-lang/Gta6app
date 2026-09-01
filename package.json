@@ -12,12 +12,14 @@
     "emulate": "firebase emulators:start"
   },
   "dependencies": {
+    "axios": "^1.20.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "firebase": "^12.18.0",
     "helmet": "^8.0.0",
+    "lucide-react": "^1.39.0",
     "psn-api": "^2.6.0"
   },
   "devDependencies": {
