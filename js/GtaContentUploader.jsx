@@ -79,23 +79,15 @@ export default function GtaContentUploader() {
   const previewUrlRef = useRef(null);
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // CLEANUP: Revoke blob URLs on unmount or when preview changes
+  // CLEANUP: Revoke blob URLs on unmount
   // ═══════════════════════════════════════════════════════════════════════════
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       if (previewUrlRef.current) {
         URL.revokeObjectURL(previewUrlRef.current);
       }
     };
   }, []);
-  
-  React.useEffect(() => {
-    return () => {
-      if (preview) {
-        URL.revokeObjectURL(preview);
-      }
-    };
-  }, [preview]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // UTILITY: FILE TYPE DETECTION
@@ -216,91 +208,94 @@ export default function GtaContentUploader() {
       return;
     }
 
+    // Only proceed if credentials are VALID (do NOT contain placeholder values)
     if (CLOUDINARY_CLOUD_NAME.includes('YOUR_') || CLOUDINARY_UNSIGNED_PRESET.includes('YOUR_')) {
-      setUploading(true);
-      setUploadProgress(0);
-      setErrorMessage('');
-      setSuccessMessage('');
-
-      try {
-        // Build FormData payload for Cloudinary AJAX endpoint
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-        formData.append('upload_preset', CLOUDINARY_UNSIGNED_PRESET);
-        formData.append('cloud_name', CLOUDINARY_CLOUD_NAME);
-
-        // Cloudinary Upload URL (unsigned)
-        const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`;
-
-        // Axios upload with real-time progress tracking
-        const response = await axios.post(cloudinaryUrl, formData, {
-          onUploadProgress: (progressEvent) => {
-            const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
-            setUploadProgress(progress);
-          },
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-          },
-        });
-
-        const { secure_url, public_id } = response.data;
-
-        // Extract file metadata
-        const fileType = getFileType(selectedFile);
-        const fileName = selectedFile.name;
-
-        // ═══════════════════════════════════════════════════════════════════
-        // FIRESTORE: SAVE UPLOADED CONTENT METADATA
-        // ═══════════════════════════════════════════════════════════════════
-        
-        const docRef = await addDoc(collection(db, 'gta_posts'), {
-          secure_url: secure_url,      // Cloudinary CDN URL
-          public_id: public_id,          // Cloudinary public ID (for updates/deletes)
-          fileType: fileType,            // 'image' or 'video'
-          fileName: fileName,            // Original filename
-          createdAt: serverTimestamp(),  // Server-side timestamp
-          uploadedAt: new Date().toISOString(),
-          cloudinaryData: {
-            format: response.data.format,
-            width: response.data.width,
-            height: response.data.height,
-            bytes: response.data.bytes,
-          },
-        });
-
-        // Success state
-        setUploadedData({
-          url: secure_url,
-          publicId: public_id,
-          docId: docRef.id,
-          fileType: fileType,
-        });
-        
-        setSuccessMessage(`✅ Upload successful! Content saved to Firestore (Doc ID: ${docRef.id})`);
-        setUploadProgress(100);
-
-        // Reset form after 3 seconds
-        setTimeout(() => {
-          resetForm();
-        }, 3000);
-
-      } catch (error) {
-        console.error('Upload Error:', error);
-        
-        if (error.response?.data?.error?.message) {
-          setErrorMessage(`❌ Upload failed: ${error.response.data.error.message}`);
-        } else if (error.message === 'Network Error') {
-          setErrorMessage('❌ Network error. Check your internet connection and Cloudinary credentials.');
-        } else {
-          setErrorMessage(`❌ Upload failed: ${error.message}`);
-        }
-        
-        setUploadProgress(0);
-      } finally {
-        setUploading(false);
-      }
-    } else {
       setErrorMessage('⚠️ Cloudinary credentials contain placeholder values. Replace them with real credentials.');
+      return;
+    }
+
+    // Upload begins here with valid credentials
+    setUploading(true);
+    setUploadProgress(0);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      // Build FormData payload for Cloudinary AJAX endpoint
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('upload_preset', CLOUDINARY_UNSIGNED_PRESET);
+      formData.append('cloud_name', CLOUDINARY_CLOUD_NAME);
+
+      // Cloudinary Upload URL (unsigned)
+      const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`;
+
+      // Axios upload with real-time progress tracking
+      const response = await axios.post(cloudinaryUrl, formData, {
+        onUploadProgress: (progressEvent) => {
+          const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+          setUploadProgress(progress);
+        },
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      });
+
+      const { secure_url, public_id } = response.data;
+
+      // Extract file metadata
+      const fileType = getFileType(selectedFile);
+      const fileName = selectedFile.name;
+
+      // ═══════════════════════════════════════════════════════════════════
+      // FIRESTORE: SAVE UPLOADED CONTENT METADATA
+      // ═══════════════════════════════════════════════════════════════════
+      
+      const docRef = await addDoc(collection(db, 'gta_posts'), {
+        secure_url: secure_url,      // Cloudinary CDN URL
+        public_id: public_id,          // Cloudinary public ID (for updates/deletes)
+        fileType: fileType,            // 'image' or 'video'
+        fileName: fileName,            // Original filename
+        createdAt: serverTimestamp(),  // Server-side timestamp
+        uploadedAt: new Date().toISOString(),
+        cloudinaryData: {
+          format: response.data.format,
+          width: response.data.width,
+          height: response.data.height,
+          bytes: response.data.bytes,
+        },
+      });
+
+      // Success state
+      setUploadedData({
+        url: secure_url,
+        publicId: public_id,
+        docId: docRef.id,
+        fileType: fileType,
+      });
+      
+      setSuccessMessage(`✅ Upload successful! Content saved to Firestore (Doc ID: ${docRef.id})`);
+      setUploadProgress(100);
+
+      // Reset form after 3 seconds
+      setTimeout(() => {
+        resetForm();
+      }, 3000);
+
+    } catch (error) {
+      console.error('Upload Error:', error);
+      
+      if (error.response?.data?.error?.message) {
+        setErrorMessage(`❌ Upload failed: ${error.response.data.error.message}`);
+      } else if (error.message === 'Network Error') {
+        setErrorMessage('❌ Network error. Check your internet connection and Cloudinary credentials.');
+      } else {
+        setErrorMessage(`❌ Upload failed: ${error.message}`);
+      }
+      
+      setUploadProgress(0);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -309,15 +304,16 @@ export default function GtaContentUploader() {
   // ═══════════════════════════════════════════════════════════════════════════
   
   const resetForm = () => {
+    // Revoke blob URL before clearing state
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
     setSelectedFile(null);
     setPreview(null);
     setPreviewType(null);
     setUploadProgress(0);
     setUploadedData(null);
-    if (previewUrlRef.current) {
-      URL.revokeObjectURL(previewUrlRef.current);
-      previewUrlRef.current = null;
-    }
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
