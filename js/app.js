@@ -924,12 +924,14 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
         var imageButton = document.getElementById("qsImageBtn");
         var mediaStatus = document.getElementById("qsMediaStatus");
         var previewUrl = null;
+        var selectedImageFile = null;
 
         function clearImagePreview() {
           var preview = document.getElementById("qsImagePreview");
           if (preview) preview.remove();
           if (previewUrl) URL.revokeObjectURL(previewUrl);
           previewUrl = null;
+          selectedImageFile = null;
           if (imageInput) imageInput.value = "";
           if (mediaStatus) mediaStatus.textContent = "No image attached";
         }
@@ -938,6 +940,7 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
           var existingPreview = document.getElementById("qsImagePreview");
           if (existingPreview) existingPreview.remove();
           if (previewUrl) URL.revokeObjectURL(previewUrl);
+          selectedImageFile = file;
           previewUrl = URL.createObjectURL(file);
           var preview = document.createElement("div");
           preview.id = "qsImagePreview";
@@ -1003,7 +1006,7 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
             return;
           }
 
-          var imageFile = imageInput ? imageInput.files[0] : null;
+          var imageFile = selectedImageFile || (imageInput ? imageInput.files[0] : null);
 
           qsBtn.disabled = true;
           qsBtn.textContent = "Posting...";
