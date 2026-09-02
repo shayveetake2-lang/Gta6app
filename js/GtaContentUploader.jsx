@@ -6,7 +6,7 @@
  * ╚══════════════════════════════════════════════════════════════════════════════╝
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { Upload, X, CheckCircle, AlertCircle, Zap, Play, Image as ImageIcon } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
@@ -22,8 +22,8 @@ import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/fire
      Set it to "Unsigned" mode to prevent API key exposure client-side
    ✓ Replace below values with your actual Cloudinary credentials
 */
-const CLOUDINARY_CLOUD_NAME = 'YOUR_CLOUDINARY_CLOUD_NAME_HERE';
-const CLOUDINARY_UNSIGNED_PRESET = 'YOUR_UNSIGNED_UPLOAD_PRESET_HERE';
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_UNSIGNED_PRESET = import.meta.env.VITE_CLOUDINARY_UNSIGNED_PRESET;
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    CONFIGURATION: FIREBASE INITIALIZATION (Modern Modular SDK v9+)
@@ -76,6 +76,26 @@ export default function GtaContentUploader() {
   
   const dropzoneRef = useRef(null);
   const fileInputRef = useRef(null);
+  const previewUrlRef = useRef(null);
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CLEANUP: Revoke blob URLs on unmount or when preview changes
+  // ═══════════════════════════════════════════════════════════════════════════
+  React.useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
+    };
+  }, []);
+  
+  React.useEffect(() => {
+    return () => {
+      if (preview) {
+        URL.revokeObjectURL(preview);
+      }
+    };
+  }, [preview]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // UTILITY: FILE TYPE DETECTION
@@ -127,8 +147,14 @@ export default function GtaContentUploader() {
     const fileType = getFileType(file);
     setPreviewType(fileType);
     
+    // Revoke previous blob URL if exists
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+    }
+    
     // Generate blob URL for instant local preview (before cloud upload)
     const blobUrl = URL.createObjectURL(file);
+    previewUrlRef.current = blobUrl;
     setPreview(blobUrl);
   };
 
@@ -184,7 +210,13 @@ export default function GtaContentUploader() {
       return;
     }
 
-    if (!CLOUDINARY_CLOUD_NAME.includes('YOUR_') && !CLOUDINARY_UNSIGNED_PRESET.includes('YOUR_')) {
+    // Validate Cloudinary credentials are configured
+    if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UNSIGNED_PRESET || CLOUDINARY_CLOUD_NAME === 'undefined' || CLOUDINARY_UNSIGNED_PRESET === 'undefined') {
+      setErrorMessage('⚠️ Cloudinary credentials not configured. Please set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UNSIGNED_PRESET environment variables.');
+      return;
+    }
+
+    if (CLOUDINARY_CLOUD_NAME.includes('YOUR_') || CLOUDINARY_UNSIGNED_PRESET.includes('YOUR_')) {
       setUploading(true);
       setUploadProgress(0);
       setErrorMessage('');
@@ -268,7 +300,7 @@ export default function GtaContentUploader() {
         setUploading(false);
       }
     } else {
-      setErrorMessage('⚠️ Please configure Cloudinary credentials in the component configuration section.');
+      setErrorMessage('⚠️ Cloudinary credentials contain placeholder values. Replace them with real credentials.');
     }
   };
 
@@ -282,6 +314,10 @@ export default function GtaContentUploader() {
     setPreviewType(null);
     setUploadProgress(0);
     setUploadedData(null);
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
