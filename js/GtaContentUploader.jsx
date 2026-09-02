@@ -22,8 +22,12 @@ import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/fire
      Set it to "Unsigned" mode to prevent API key exposure client-side
    ✓ Replace below values with your actual Cloudinary credentials
 */
-const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-const CLOUDINARY_UNSIGNED_PRESET = import.meta.env.VITE_CLOUDINARY_UNSIGNED_PRESET;
+const CLOUDINARY_CLOUD_NAME =
+  import.meta.env.VITE_CLOUDINARY_CLOUD_NAME ||
+  (typeof window !== "undefined" ? window.CLOUDINARY_CLOUD_NAME : undefined);
+const CLOUDINARY_UNSIGNED_PRESET =
+  import.meta.env.VITE_CLOUDINARY_UNSIGNED_PRESET ||
+  (typeof window !== "undefined" ? window.CLOUDINARY_UNSIGNED_PRESET : undefined);
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    CONFIGURATION: FIREBASE INITIALIZATION (Modern Modular SDK v9+)

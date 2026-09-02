@@ -57,6 +57,11 @@
               >
             </li>
             <li>
+              <a class="nav__link" href="#/upload" data-route-link="/upload"
+                >Upload</a
+              >
+            </li>
+            <li>
               <a
                 class="nav__link"
                 href="#/achievements"
@@ -137,6 +142,9 @@
       <a href="#/news" data-route-link="/news"
         ><span class="tabbar__icon news-icon" aria-hidden="true">▥</span>News</a
       >
+      <a href="#/upload" data-route-link="/upload"
+        ><span class="tabbar__icon" aria-hidden="true">⇧</span>Upload</a
+      >
       <a href="#/achievements" data-route-link="/achievements" id="tabAchievements" style="display: none;"
         ><span class="tabbar__icon" aria-hidden="true">★</span>Trophies</a
       >
@@ -166,6 +174,11 @@
        Leave blank to disable platform imports and show only the local tracker. -->
     <script>
       window.ACHIEVEMENT_API_URL = "";
+
+      // CLOUDINARY CREDENTIALS
+      // Replace these with the values from your Cloudinary dashboard
+      window.CLOUDINARY_CLOUD_NAME = "izgbgrqo";
+      window.CLOUDINARY_UNSIGNED_PRESET = "gta6app";
     </script>
     <script type="module" src="js/app.js?v=13"></script>
 

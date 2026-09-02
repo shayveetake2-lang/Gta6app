@@ -20,9 +20,12 @@
     "firebase": "^12.18.0",
     "helmet": "^8.0.0",
     "lucide-react": "^1.39.0",
-    "psn-api": "^2.6.0"
+    "psn-api": "^2.6.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "firebase-admin": "^13.0.1",
     "firebase-tools": "^13.29.1"
   }

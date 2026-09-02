@@ -812,7 +812,9 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
           '<form id="quickShareForm" class="post-card">' +
             '<textarea id="qsText" class="post-form-textarea" required maxlength="' + POST_MAX_LEN + '" placeholder="' + placeholderText + '"></textarea>' +
             '<div class="post-form-footer" style="flex-wrap: wrap; gap: 1rem;">' +
-              '<input type="file" id="qsImage" accept="image/*,video/*" style="margin-right: auto; max-width: 220px; font-size: 0.8rem;" />' +
+              '<input type="file" id="qsImage" accept="image/jpeg,image/png,image/webp,image/gif" hidden />' +
+              '<button type="button" id="qsImageBtn" class="btn btn--ghost" aria-label="Add image to post">Add image</button>' +
+              '<span id="qsMediaStatus" class="post-form-count" aria-live="polite">No image attached</span>' +
               '<select id="qsCategory" class="post-form-select">' +
                 '<option value="news">News</option>' +
                 '<option value="guides">Guide</option>' +
@@ -918,6 +920,32 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
         var qsText = document.getElementById("qsText");
         var qsCount = document.getElementById("qsCount");
         var qsBtn = document.getElementById("qsBtn");
+        var imageInput = document.getElementById("qsImage");
+        var imageButton = document.getElementById("qsImageBtn");
+        var mediaStatus = document.getElementById("qsMediaStatus");
+        var previewUrl = null;
+
+        function clearImagePreview() {
+          var preview = document.getElementById("qsImagePreview");
+          if (preview) preview.remove();
+          if (previewUrl) URL.revokeObjectURL(previewUrl);
+          previewUrl = null;
+          if (imageInput) imageInput.value = "";
+          if (mediaStatus) mediaStatus.textContent = "No image attached";
+        }
+
+        function showImagePreview(file) {
+          clearImagePreview();
+          previewUrl = URL.createObjectURL(file);
+          var preview = document.createElement("div");
+          preview.id = "qsImagePreview";
+          preview.className = "post-image-preview";
+          preview.innerHTML = '<img alt="Selected image preview"><button type="button" class="icon-btn" aria-label="Remove attached image" title="Remove image">&times;</button>';
+          preview.querySelector("img").src = previewUrl;
+          preview.querySelector("button").addEventListener("click", clearImagePreview);
+          qsForm.insertBefore(preview, qsForm.querySelector(".post-form-footer"));
+          if (mediaStatus) mediaStatus.textContent = file.name;
+        }
 
         function updateQsCount() {
           if (!qsText || !qsCount) return;
@@ -935,6 +963,31 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
           updateQsCount();
         }
 
+        if (imageButton && imageInput) {
+          imageButton.addEventListener("click", function () {
+            if (!isAuth) {
+              document.getElementById("authModalOverlay").classList.add("active");
+              return;
+            }
+            imageInput.click();
+          });
+          imageInput.addEventListener("change", function () {
+            var file = imageInput.files[0];
+            if (!file) return;
+            if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) {
+              clearImagePreview();
+              alert("Choose a JPEG, PNG, WebP, or GIF image.");
+              return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+              clearImagePreview();
+              alert("Images must be 10 MB or smaller.");
+              return;
+            }
+            showImagePreview(file);
+          });
+        }
+
         qsForm.addEventListener("submit", function(e) {
           e.preventDefault();
           if (!isAuth) {
@@ -948,7 +1001,6 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
             return;
           }
 
-          var imageInput = document.getElementById("qsImage");
           var imageFile = imageInput ? imageInput.files[0] : null;
 
           qsBtn.disabled = true;
@@ -963,9 +1015,14 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
             var formData = new FormData();
             formData.append('file', imageFile);
             
-            // Try to get from window or use defaults. The user will be instructed to set these.
-            var cloudName = window.CLOUDINARY_CLOUD_NAME || 'YOUR_CLOUD_NAME';
-            var uploadPreset = window.CLOUDINARY_UNSIGNED_PRESET || 'YOUR_UNSIGNED_PRESET';
+            var cloudName = window.CLOUDINARY_CLOUD_NAME;
+            var uploadPreset = window.CLOUDINARY_UNSIGNED_PRESET;
+            if (!cloudName || !uploadPreset || /^YOUR_/.test(cloudName) || /^YOUR_/.test(uploadPreset)) {
+              qsBtn.disabled = false;
+              qsBtn.textContent = "Post";
+              alert("Image uploads are not configured yet. Set the Cloudinary cloud name and unsigned upload preset.");
+              return;
+            }
             formData.append('upload_preset', uploadPreset);
             
             uploadPromise = fetch('https://api.cloudinary.com/v1_1/' + cloudName + '/auto/upload', {
@@ -992,12 +1049,13 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
               };
               if (imageUrl) {
                 postData.imageUrl = imageUrl;
+                postData.mediaType = "image";
               }
               return addDoc(fbCollection(getDb(), "posts"), postData);
             });
           }).then(function() {
             document.getElementById("qsText").value = "";
-            if (imageInput) imageInput.value = "";
+            clearImagePreview();
             qsBtn.disabled = false;
             qsBtn.textContent = "Post";
             updateQsCount();
@@ -1047,7 +1105,7 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
              var tag = href ? "a" : "div";
              var linkAttr = href ? ' href="' + esc(href) + '"' : "";
              
-             var imgHtml = imageUrl ? '<div style="margin-top: 10px;"><img src="' + esc(imageUrl) + '" style="max-width: 100%; border-radius: 8px;" /></div>' : '';
+             var imgHtml = imageUrl ? '<div class="feed-post-image"><img src="' + esc(imageUrl) + '" alt="Image attached to post" loading="lazy" /></div>' : '';
 
              return '<' + tag + ' class="post-card"' + linkAttr + '>' +
                 '<div class="post-header">' +
@@ -1773,6 +1831,9 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
         var badgeColor = "news";
         if (displayCat.toLowerCase() === "guides" || displayCat.toLowerCase() === "missions") badgeColor = "guides";
         if (displayCat.toLowerCase() === "discussions") badgeColor = "discussions";
+        var imageHtml = data.imageUrl
+          ? '<div class="feed-post-image"><img src="' + esc(data.imageUrl) + '" alt="Image attached to post" /></div>'
+          : "";
         
         render(
           '<div style="margin-bottom:1rem;"><a class="btn btn--ghost" href="#/">← Back to feed</a></div>' +
@@ -1784,7 +1845,7 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
               '</div>' +
               '<span class="badge badge--' + badgeColor + '">' + esc(displayCat) + '</span>' +
             '</div>' +
-            '<div class="post-body" style="font-size: 1.1rem; line-height: 1.6; padding-top: 1rem;">' + esc(data.text) + '</div>' +
+            '<div class="post-body" style="font-size: 1.1rem; line-height: 1.6; padding-top: 1rem;">' + esc(data.text) + imageHtml + '</div>' +
           '</div>'
         );
       }).catch(function(err) {

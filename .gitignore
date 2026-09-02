@@ -13,3 +13,5 @@ serviceAccountKey.json
 
 .DS_Store
 my-gta6-walkthrough-app/functions/venv/
+
+.env
