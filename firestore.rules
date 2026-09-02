@@ -238,8 +238,20 @@ service cloud.firestore {
       allow delete: if isOwner(resource.data.userId) || isAdmin();
     }
 
-    match /gta_posts/{document=**} {
-      allow read, write: if true;
+    match /gta_posts/{postId} {
+      allow read: if true;
+      allow create: if isEmailUser()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.secure_url is string
+        && request.resource.data.secure_url.size() > 0
+        && request.resource.data.public_id is string
+        && request.resource.data.public_id.size() > 0
+        && request.resource.data.fileType in ['image', 'video']
+        && request.resource.data.fileName is string
+        && request.resource.data.fileName.size() > 0
+        && request.resource.data.fileName.size() <= 255
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if isAdmin() || isOwner(resource.data.userId);
     }
   }
 }

@@ -10,6 +10,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { Upload, X, CheckCircle, AlertCircle, Zap, Play, Image as ImageIcon } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -56,6 +57,7 @@ const firebaseApp = initializeApp(firebaseConfig);
 
 // Initialize Firestore Database Instance
 const db = getFirestore(firebaseApp);
+const auth = getAuth(firebaseApp);
 
 /**
  * GtaContentUploader Component
@@ -206,6 +208,12 @@ export default function GtaContentUploader() {
       return;
     }
 
+    const user = auth.currentUser;
+    if (!user || user.isAnonymous) {
+      setErrorMessage('⚠️ Please sign in before uploading content.');
+      return;
+    }
+
     // Validate Cloudinary credentials are configured
     if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UNSIGNED_PRESET || CLOUDINARY_CLOUD_NAME === 'undefined' || CLOUDINARY_UNSIGNED_PRESET === 'undefined') {
       setErrorMessage('⚠️ Cloudinary credentials not configured. Please set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UNSIGNED_PRESET environment variables.');
@@ -258,6 +266,7 @@ export default function GtaContentUploader() {
       const docRef = await addDoc(collection(db, 'gta_posts'), {
         secure_url: secure_url,      // Cloudinary CDN URL
         public_id: public_id,          // Cloudinary public ID (for updates/deletes)
+        userId: user.uid,
         fileType: fileType,            // 'image' or 'video'
         fileName: fileName,            // Original filename
         createdAt: serverTimestamp(),  // Server-side timestamp

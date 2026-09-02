@@ -1,6 +1,6 @@
 import { DB, dbReady } from "./data.js";
 import { isConfigured, onAuthChange, isEmailUser, getDb, getUser } from "./firebase.js";
-import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, where, onSnapshot, deleteDoc, doc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, where, onSnapshot, deleteDoc, doc, serverTimestamp, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 (function () {
   "use strict";
 
@@ -132,6 +132,14 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
     }
   }
 
+  document.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-action='approve-news'], [data-action='delete-news']");
+    if (!button) return;
+    var id = button.dataset.newsId;
+    if (button.dataset.action === "approve-news") window.approveNews(id);
+    if (button.dataset.action === "delete-news") window.deleteNews(id);
+  });
+
   function parseHash() {
     var full = location.hash.replace(/^#/, "") || "/";
     var raw = full.split("?")[0];
@@ -193,14 +201,14 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
       sourceHtml +
       "<div>" +
       (isAdmin
-        ? '<button class="btn btn--sm btn--danger" onclick="window.deleteNews(\'' +
+        ? '<button class="btn btn--sm btn--danger" data-action="delete-news" data-news-id="' +
           esc(n.id) +
-          '\')" style="margin-right:.5rem;">Delete</button>'
+          '" style="margin-right:.5rem;">Delete</button>'
         : "") +
       (isAdmin && !n.isApproved
-        ? '<button class="btn btn--sm btn--approve" onclick="window.approveNews(\'' +
+        ? '<button class="btn btn--sm btn--approve" data-action="approve-news" data-news-id="' +
           esc(n.id) +
-          "')\">Approve</button>"
+          '">Approve</button>'
         : "") +
       "</div>" +
       "</div>" +
@@ -1090,9 +1098,9 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
         // Realtime Feed Listener
         var feedQuery;
         if (currentTab === "all") {
-          feedQuery = query(fbCollection(getDb(), "posts"), orderBy("createdAt", "desc"));
+          feedQuery = query(fbCollection(getDb(), "posts"), orderBy("createdAt", "desc"), limit(30));
         } else {
-          feedQuery = query(fbCollection(getDb(), "posts"), where("category", "==", currentTab), orderBy("createdAt", "desc"));
+          feedQuery = query(fbCollection(getDb(), "posts"), where("category", "==", currentTab), orderBy("createdAt", "desc"), limit(30));
         }
 
         window.feedUnsub = onSnapshot(feedQuery, function(snapshot) {
@@ -2957,13 +2965,13 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
                   "</div>" +
                   '<div class="admin-row__actions">' +
                   (!n.isApproved
-                    ? '<button class="btn btn--approve btn--sm" onclick="window.approveNews(\'' +
+                    ? '<button class="btn btn--approve btn--sm" data-action="approve-news" data-news-id="' +
                       esc(n.id) +
-                      "')\">Approve</button>"
+                      '">Approve</button>'
                     : "") +
-                  '<button class="btn btn--danger btn--sm" onclick="window.deleteNews(\'' +
+                  '<button class="btn btn--danger btn--sm" data-action="delete-news" data-news-id="' +
                   esc(n.id) +
-                  "')\">Remove</button>" +
+                  '">Remove</button>' +
                   "</div>" +
                   "</div>"
                 );

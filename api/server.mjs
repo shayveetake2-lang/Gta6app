@@ -32,6 +32,14 @@ function cached(key, loader) {
   });
 }
 
+function isIdentifier(value, maxLength) {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]+$/.test(value) && value.length <= maxLength;
+}
+
+function isNumericIdentifier(value, maxLength) {
+  return typeof value === 'string' && /^\d+$/.test(value) && value.length <= maxLength;
+}
+
 async function json(url, options = {}) {
   const response = await fetch(url, { ...options, headers: { Accept: 'application/json', ...(options.headers || {}) } });
   if (!response.ok) throw new Error(`${response.status} from platform API`);
@@ -87,6 +95,14 @@ async function playstationAchievements(accountId, titleId) {
 function route(platform, loader) {
   return async (request, response) => {
     try {
+      const query = request.query;
+      const valid =
+        (platform === 'steam' && isNumericIdentifier(query.steamId, 20) && isNumericIdentifier(query.appId, 10)) ||
+        (platform === 'xbox' && isIdentifier(query.xuid, 32) && isNumericIdentifier(query.titleId, 12)) ||
+        (platform === 'playstation' && isIdentifier(query.accountId, 64) && isIdentifier(query.titleId, 64));
+      if (!valid) {
+        return response.status(400).json({ error: `Invalid ${platform} account or title identifier.` });
+      }
       const key = `${platform}:${JSON.stringify(request.query)}`;
       response.json({ platform, achievements: await cached(key, () => loader(request.query)) });
     } catch (error) { response.status(502).json({ error: error.message }); }

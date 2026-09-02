@@ -13,5 +13,6 @@ await esbuild.build({
   outfile: 'js/uploader-bundle.js',
   define: define,
   loader: { '.jsx': 'jsx' },
+  minifyWhitespace: true,
 });
 console.log("Built uploader-bundle.js");
