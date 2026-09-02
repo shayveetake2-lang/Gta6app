@@ -759,6 +759,25 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
          if (mGridCurrent) mGridCurrent.innerHTML = '<div style="color: #e01e5a; font-size: 0.9rem; padding: 1rem 0;">No achievements added. Please add some.</div>';
       });
     },
+    "/upload": function () {
+      render(
+        '<div class="section-head"><h2>Upload Content</h2></div>' +
+        '<div id="uploader-root">Loading uploader...</div>'
+      );
+      if (window.mountGtaUploader) {
+        window.mountGtaUploader("uploader-root");
+      } else {
+        // Load the bundle dynamically if not loaded
+        var script = document.createElement("script");
+        script.src = "js/uploader-bundle.js";
+        script.onload = function() {
+          if (window.mountGtaUploader) {
+            window.mountGtaUploader("uploader-root");
+          }
+        };
+        document.body.appendChild(script);
+      }
+    },
     "/": function () {
       var r = parseHash();
       var currentTab = (r.params && r.params.tab) ? r.params.tab.toLowerCase() : "all";
@@ -792,7 +811,8 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
         var formHtml = 
           '<form id="quickShareForm" class="post-card">' +
             '<textarea id="qsText" class="post-form-textarea" required maxlength="' + POST_MAX_LEN + '" placeholder="' + placeholderText + '"></textarea>' +
-            '<div class="post-form-footer">' +
+            '<div class="post-form-footer" style="flex-wrap: wrap; gap: 1rem;">' +
+              '<input type="file" id="qsImage" accept="image/*,video/*" style="margin-right: auto; max-width: 220px; font-size: 0.8rem;" />' +
               '<select id="qsCategory" class="post-form-select">' +
                 '<option value="news">News</option>' +
                 '<option value="guides">Guide</option>' +
@@ -928,22 +948,56 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
             return;
           }
 
+          var imageInput = document.getElementById("qsImage");
+          var imageFile = imageInput ? imageInput.files[0] : null;
+
           qsBtn.disabled = true;
           qsBtn.textContent = "Posting...";
 
           var category = document.getElementById("qsCategory").value;
           
-          Data.getCurrentProfile().then(function(profile) {
-            var name = profile && profile.displayName ? profile.displayName : (user.displayName || (user.email ? user.email.split('@')[0] : 'Anonymous User'));
-            return addDoc(fbCollection(getDb(), "posts"), {
-              text: text,
-              category: category,
-              userId: user.uid,
-              authorName: name,
-              createdAt: serverTimestamp()
+          var uploadPromise = Promise.resolve(null);
+          
+          if (imageFile) {
+            qsBtn.textContent = "Uploading media...";
+            var formData = new FormData();
+            formData.append('file', imageFile);
+            
+            // Try to get from window or use defaults. The user will be instructed to set these.
+            var cloudName = window.CLOUDINARY_CLOUD_NAME || 'YOUR_CLOUD_NAME';
+            var uploadPreset = window.CLOUDINARY_UNSIGNED_PRESET || 'YOUR_UNSIGNED_PRESET';
+            formData.append('upload_preset', uploadPreset);
+            
+            uploadPromise = fetch('https://api.cloudinary.com/v1_1/' + cloudName + '/auto/upload', {
+              method: 'POST',
+              body: formData
+            }).then(function(res) {
+              if (!res.ok) throw new Error("Media upload failed. Ensure window.CLOUDINARY_CLOUD_NAME and window.CLOUDINARY_UNSIGNED_PRESET are set in index.html.");
+              return res.json();
+            }).then(function(data) {
+              return data.secure_url;
+            });
+          }
+
+          uploadPromise.then(function(imageUrl) {
+            qsBtn.textContent = "Saving post...";
+            return Data.getCurrentProfile().then(function(profile) {
+              var name = profile && profile.displayName ? profile.displayName : (user.displayName || (user.email ? user.email.split('@')[0] : 'Anonymous User'));
+              var postData = {
+                text: text,
+                category: category,
+                userId: user.uid,
+                authorName: name,
+                createdAt: serverTimestamp()
+              };
+              if (imageUrl) {
+                postData.imageUrl = imageUrl;
+              }
+              return addDoc(fbCollection(getDb(), "posts"), postData);
             });
           }).then(function() {
             document.getElementById("qsText").value = "";
+            if (imageInput) imageInput.value = "";
             qsBtn.disabled = false;
             qsBtn.textContent = "Post";
             updateQsCount();
@@ -982,7 +1036,7 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
           var html = "";
           var count = 0;
           
-          function renderPost(author, timeStr, badgeColor, categoryText, bodyText, id, type) {
+          function renderPost(author, timeStr, badgeColor, categoryText, bodyText, id, type, imageUrl) {
              var href = "";
              if (id) {
                if (type === "walkthroughs" || type === "guides") href = "#/walkthroughs/" + id;
@@ -992,6 +1046,9 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
              }
              var tag = href ? "a" : "div";
              var linkAttr = href ? ' href="' + esc(href) + '"' : "";
+             
+             var imgHtml = imageUrl ? '<div style="margin-top: 10px;"><img src="' + esc(imageUrl) + '" style="max-width: 100%; border-radius: 8px;" /></div>' : '';
+
              return '<' + tag + ' class="post-card"' + linkAttr + '>' +
                 '<div class="post-header">' +
                   '<div>' +
@@ -1000,7 +1057,7 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
                   '</div>' +
                   '<span class="badge badge--' + badgeColor + '">' + esc(categoryText) + '</span>' +
                 '</div>' +
-                '<div class="post-body">' + esc(bodyText) + '</div>' +
+                '<div class="post-body">' + esc(bodyText) + imgHtml + '</div>' +
               '</' + tag + '>';
           }
 
@@ -1023,7 +1080,7 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
               if (data.category.toUpperCase() === "MONEY") { badgeColor = "money"; displayCat = "MONEY"; }
             }
 
-            html += renderPost(data.authorName, dateStr, badgeColor, displayCat, data.text, docSnap.id, type);
+            html += renderPost(data.authorName, dateStr, badgeColor, displayCat, data.text, docSnap.id, type, data.imageUrl);
           });
 
           // Backfilling if sparse (< 8)
@@ -1804,6 +1861,8 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
           "<option>Official</option><option>Leaks</option><option>Rumors</option><option>Community</option>" +
           "</select></div>" +
           '<div class="field"><label for="newsSourceLink">Source / Citation Link</label><input id="newsSourceLink" type="url" placeholder="https://..." /></div>' +
+          '<div class="field"><label for="newsMediaUrl">Media Attachment (Image/Screenshot URL)</label><input id="newsMediaUrl" type="url" placeholder="https://your-image-url.jpg" /><small style="color:var(--color-secondary); display:block; margin-top:0.25rem;">Optional: Attach gameplay screenshots, trailers, or images to your post</small></div>' +
+          '<div class="field"><label for="newsMediaUrls">Additional Media URLs (comma-separated)</label><input id="newsMediaUrls" type="text" placeholder="https://image1.jpg, https://image2.jpg" /><small style="color:var(--color-secondary); display:block; margin-top:0.25rem;">Optional: Add multiple image URLs separated by commas</small></div>' +
           '<div class="field"><label for="newsContent">Article Content & Details</label><textarea id="newsContent" required rows="6" maxlength="8000" placeholder="Write full details, breakdown points, timestamps, quotes, or sections here…"></textarea></div>' +
           '<div style="margin-top:1rem;display:flex;justify-content:flex-end;gap:.5rem;">' +
           '<button type="button" class="btn btn--ghost" id="newsModalCancel">Cancel</button>' +
@@ -1964,6 +2023,44 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
             btn.disabled = true;
             btn.textContent = "Publishing…";
 
+            // Validate and parse media URLs
+            var mediaUrl = document.getElementById("newsMediaUrl").value.trim() || null;
+            var mediaUrlsInput = document.getElementById("newsMediaUrls").value.trim() || "";
+            var mediaUrls = [];
+            
+            // Validate primary media URL
+            if (mediaUrl) {
+              try {
+                new URL(mediaUrl);
+              } catch (e) {
+                errEl.textContent = "Invalid primary media URL. Please provide a valid HTTPS image URL.";
+                errEl.classList.add("is-visible");
+                btn.disabled = false;
+                btn.textContent = "Submit News";
+                return;
+              }
+              mediaUrls.push(mediaUrl);
+            }
+            
+            // Parse and validate additional media URLs
+            if (mediaUrlsInput) {
+              var urls = mediaUrlsInput.split(",").map(function(url) { return url.trim(); }).filter(function(url) { return url.length > 0; });
+              for (var i = 0; i < urls.length; i++) {
+                try {
+                  new URL(urls[i]);
+                  if (!mediaUrls.includes(urls[i])) {
+                    mediaUrls.push(urls[i]);
+                  }
+                } catch (e) {
+                  errEl.textContent = "Invalid media URL at position " + (i + 1) + ": '" + urls[i] + "'. Please provide valid HTTPS URLs.";
+                  errEl.classList.add("is-visible");
+                  btn.disabled = false;
+                  btn.textContent = "Submit News";
+                  return;
+                }
+              }
+            }
+
             DB.createNews({
               title: document.getElementById("newsTitle").value.trim(),
               category: document.getElementById("newsCategory").value,
@@ -1971,13 +2068,15 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
                 .getElementById("newsSourceLink")
                 .value.trim(),
               content: document.getElementById("newsContent").value.trim(),
+              mediaUrl: mediaUrl,
+              mediaUrls: mediaUrls.length > 0 ? mediaUrls : null,
               isApproved: false,
             })
               .then(function () {
                 newsModal.hidden = true;
                 e.target.reset();
                 btn.disabled = false;
-                btn.textContent = "Publish news";
+                btn.textContent = "Submit News";
                 var statusDiv = document.getElementById("newsStatusMessage");
                 if (statusDiv) {
                   statusDiv.innerHTML =
@@ -1991,7 +2090,7 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
                 errEl.textContent = err.message || "Could not publish news.";
                 errEl.classList.add("is-visible");
                 btn.disabled = false;
-                btn.textContent = "Publish news";
+                btn.textContent = "Submit News";
               });
           });
       }

@@ -473,7 +473,7 @@ const localBackend = {
   async getNews(id) {
     return clone(localNews().find((n) => n.id === id) || null);
   },
-  async createNews({ title, category, content, sourceLink, isApproved }) {
+  async createNews({ title, category, content, sourceLink, mediaUrl, mediaUrls, isApproved }) {
     const user = await this.getCurrentProfile();
     const item = {
       id: uid("news"),
@@ -481,6 +481,8 @@ const localBackend = {
       category: category || "Official",
       content: (content || "").trim(),
       sourceLink: (sourceLink || "").trim(),
+      mediaUrl: mediaUrl || null,
+      mediaUrls: mediaUrls || null,
       dateAdded: today(),
       isApproved: !!isApproved,
       author: user ? user.username : "guest",
@@ -1106,7 +1108,7 @@ function firestoreBackend(db) {
       };
     },
 
-    async createNews({ title, category, content, sourceLink, isApproved }) {
+    async createNews({ title, category, content, sourceLink, mediaUrl, mediaUrls, isApproved }) {
       const user = getUser();
       const profile = await this.getCurrentProfile();
       const author = profile ? profile.username : displayName();
@@ -1115,6 +1117,8 @@ function firestoreBackend(db) {
         category: category || "Official",
         content: (content || "").trim(),
         sourceLink: (sourceLink || "").trim(),
+        mediaUrl: mediaUrl || null,
+        mediaUrls: mediaUrls || null,
         dateAdded: serverTimestamp(),
         isApproved: !!isApproved,
         author: author,
