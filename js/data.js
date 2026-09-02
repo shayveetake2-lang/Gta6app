@@ -837,6 +837,8 @@ function firestoreBackend(db) {
 
     async createThread({ title, category, body }) {
       const user = getUser();
+      if (!user || user.isAnonymous)
+        throw new Error("You must be signed in to create a thread.");
       const profile = await this.getCurrentProfile();
       const author = profile ? profile.username : displayName();
       const ref = await addDoc(threadsRef, {
@@ -874,6 +876,8 @@ function firestoreBackend(db) {
 
     async addReply(threadId, { body }) {
       const user = getUser();
+      if (!user || user.isAnonymous)
+        throw new Error("You must be signed in to post a reply.");
       const profile = await this.getCurrentProfile();
       const reply = {
         body,

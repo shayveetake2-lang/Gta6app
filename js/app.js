@@ -1834,6 +1834,10 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
         location.hash = "#/";
         return;
       }
+      if (!getDb()) {
+        render(emptyState("The feed database is not available."));
+        return;
+      }
       getDoc(doc(getDb(), "posts", id)).then(function(docSnap) {
         if (!docSnap.exists()) return render(emptyState("That post could not be found."));
         var data = docSnap.data();
@@ -2464,7 +2468,7 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
 
     "/admin": function () {
       // Gate: only email-authenticated users with Admin role can see this.
-      if (!isEmailUser() && isConfigured) {
+      if (!isConfigured || !isEmailUser()) {
         render(
           '<div class="section-head"><h2>Admin</h2></div>' +
             emptyState("You must be logged in to access the admin dashboard.") +
