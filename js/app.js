@@ -3349,16 +3349,17 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
             snap.forEach(function(docSnap) {
               var data = docSnap.data();
               var dateStr = data.createdAt ? new Date(data.createdAt.toMillis()).toLocaleString() : "Just now";
+              var category = typeof data.category === "string" ? data.category : "news";
               html += 
                 '<div class="admin-row" data-post-id="' + docSnap.id + '">' +
                   '<div class="admin-row__body">' +
                     '<strong>' + esc(data.authorName || 'Anonymous') + '</strong> <span style="font-size:0.8rem;color:#888;">(' + dateStr + ')</span>' +
                     '<div style="margin-top:0.5rem;font-size:0.9rem;">' + esc(data.text) + '</div>' +
-                    '<div style="margin-top:0.25rem;"><span class="badge badge--' + esc(data.category.toLowerCase()) + '">' + esc(data.category) + '</span></div>' +
+                    '<div style="margin-top:0.25rem;"><span class="badge badge--' + esc(category.toLowerCase()) + '">' + esc(category) + '</span></div>' +
                   '</div>' +
                   '<div class="admin-row__actions">' +
                     '<button class="btn btn--secondary" data-action="edit-post" data-id="' + docSnap.id + '">Edit</button>' +
-                    '<button class="btn btn--danger" data-action="delete-post" data-id="' + docSnap.id + '">Delete</button>' +
+                    '<button class="btn btn--danger" data-action="delete-post" data-id="' + docSnap.id + '" aria-label="Delete feed post">Delete</button>' +
                   '</div>' +
                 '</div>';
             });
