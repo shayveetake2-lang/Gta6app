@@ -935,7 +935,9 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
         }
 
         function showImagePreview(file) {
-          clearImagePreview();
+          var existingPreview = document.getElementById("qsImagePreview");
+          if (existingPreview) existingPreview.remove();
+          if (previewUrl) URL.revokeObjectURL(previewUrl);
           previewUrl = URL.createObjectURL(file);
           var preview = document.createElement("div");
           preview.id = "qsImagePreview";
