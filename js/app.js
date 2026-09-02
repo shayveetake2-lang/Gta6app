@@ -2019,6 +2019,13 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
             e.preventDefault();
             var btn = e.target.querySelector('[type="submit"]');
             var errEl = document.getElementById("newsError");
+            
+            // Check if button exists
+            if (!btn) {
+              console.error("Submit button not found in form");
+              return;
+            }
+            
             errEl.classList.remove("is-visible");
             btn.disabled = true;
             btn.textContent = "Publishing…";
@@ -2032,8 +2039,8 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
             if (mediaUrl) {
               try {
                 new URL(mediaUrl);
-              } catch (e) {
-                errEl.textContent = "Invalid primary media URL. Please provide a valid HTTPS image URL.";
+              } catch (urlError) {
+                errEl.textContent = "Invalid primary media URL. Please provide a valid image URL (HTTPS recommended).";
                 errEl.classList.add("is-visible");
                 btn.disabled = false;
                 btn.textContent = "Submit News";
@@ -2051,8 +2058,8 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
                   if (!mediaUrls.includes(urls[i])) {
                     mediaUrls.push(urls[i]);
                   }
-                } catch (e) {
-                  errEl.textContent = "Invalid media URL at position " + (i + 1) + ": '" + urls[i] + "'. Please provide valid HTTPS URLs.";
+                } catch (urlError) {
+                  errEl.textContent = "Invalid media URL at position " + (i + 1) + ": '" + urls[i] + "'. Please provide valid URLs.";
                   errEl.classList.add("is-visible");
                   btn.disabled = false;
                   btn.textContent = "Submit News";
