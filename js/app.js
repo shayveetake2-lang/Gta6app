@@ -1025,12 +1025,18 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
             }
             formData.append('upload_preset', uploadPreset);
             
-            uploadPromise = fetch('https://api.cloudinary.com/v1_1/' + cloudName + '/auto/upload', {
+            uploadPromise = fetch('https://api.cloudinary.com/v1_1/' + cloudName + '/image/upload', {
               method: 'POST',
               body: formData
             }).then(function(res) {
-              if (!res.ok) throw new Error("Media upload failed. Ensure window.CLOUDINARY_CLOUD_NAME and window.CLOUDINARY_UNSIGNED_PRESET are set in index.html.");
-              return res.json();
+              return res.json().then(function(data) {
+                if (!res.ok) {
+                  throw new Error(data && data.error && data.error.message
+                    ? "Image upload failed: " + data.error.message
+                    : "Image upload failed (HTTP " + res.status + ").");
+                }
+                return data;
+              });
             }).then(function(data) {
               return data.secure_url;
             });
