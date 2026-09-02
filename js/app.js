@@ -3352,6 +3352,9 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
               var category = typeof data.category === "string" ? data.category : "news";
               html += 
                 '<div class="admin-row" data-post-id="' + docSnap.id + '">' +
+                  '<div class="admin-row__actions" style="justify-content:flex-start;margin-bottom:.75rem;">' +
+                    '<button class="btn btn--danger" data-action="delete-post" data-id="' + docSnap.id + '" aria-label="Delete feed post">Delete post</button>' +
+                  '</div>' +
                   '<div class="admin-row__body">' +
                     '<strong>' + esc(data.authorName || 'Anonymous') + '</strong> <span style="font-size:0.8rem;color:#888;">(' + dateStr + ')</span>' +
                     '<div style="margin-top:0.5rem;font-size:0.9rem;">' + esc(data.text) + '</div>' +
@@ -3359,7 +3362,6 @@ import { collection as fbCollection, addDoc, getDoc, getDocs, updateDoc, query, 
                   '</div>' +
                   '<div class="admin-row__actions">' +
                     '<button class="btn btn--secondary" data-action="edit-post" data-id="' + docSnap.id + '">Edit</button>' +
-                    '<button class="btn btn--danger" data-action="delete-post" data-id="' + docSnap.id + '" aria-label="Delete feed post">Delete</button>' +
                   '</div>' +
                 '</div>';
             });
